@@ -1,0 +1,26 @@
+{
+  "name": "sumit-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for SUMIT (formerly OfficeGuy) Israeli billing — read invoices/debt, issue documents, and charge with layered safety. For Claude Code & OpenClaw.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "sumit-mcp": "./dist/index.js" },
+  "files": ["dist", ".claude/skills/sumit-mcp", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "sumit-api": "^0.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@types/node": "^20.14.0"
+  },
+  "engines": { "node": ">=20" }
+}

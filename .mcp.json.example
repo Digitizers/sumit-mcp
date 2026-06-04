@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "sumit": {
+      "command": "node",
+      "args": ["./dist/index.js"],
+      "env": {
+        "SUMIT_DEFAULT_ACCOUNT": "main",
+        "SUMIT_MAIN_COMPANY_ID": "0",
+        "SUMIT_MAIN_API_KEY": "REPLACE_WITH_API_KEY",
+        "SUMIT_ALLOW_CHARGE": "0",
+        "SUMIT_MAX_CHARGE": "5000",
+        "SUMIT_CONFIRM_SECRET": "REPLACE_WITH_RANDOM_SECRET"
+      }
+    }
+  }
+}
