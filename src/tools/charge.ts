@@ -7,6 +7,8 @@ import { resolveAccount } from "../accounts.js";
 import { assertChargeEnabled, assertUnderCap, mintConfirmation, verifyConfirmation, auditCharge, type ChargeBinding } from "../safety.js";
 import type { ToolDeps } from "./read.js";
 
+const INSECURE_DEFAULT_SECRET = "insecure-default-set-SUMIT_CONFIRM_SECRET";
+
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
 }
@@ -14,8 +16,8 @@ function ok(data: unknown) {
 const itemShape = z.object({
   name: z.string(),
   description: z.string(),
-  unitPrice: z.number(),
-  quantity: z.number().optional(),
+  unitPrice: z.number().finite().positive(),
+  quantity: z.number().int().positive().optional(),
   durationMonths: z.number().optional().describe("Recurring only: charge period in months."),
   recurrence: z.number().optional(),
 });
@@ -28,7 +30,7 @@ function itemsHash(item: unknown): string {
 }
 
 export function registerChargeTools(server: McpServer, deps: ToolDeps): void {
-  const secret = deps.env.SUMIT_CONFIRM_SECRET || "insecure-default-set-SUMIT_CONFIRM_SECRET";
+  const secret = deps.env.SUMIT_CONFIRM_SECRET || INSECURE_DEFAULT_SECRET;
 
   server.registerTool(
     "sumit_prepare_charge",
@@ -79,6 +81,9 @@ export function registerChargeTools(server: McpServer, deps: ToolDeps): void {
     },
     async (a) => {
       assertChargeEnabled(deps.env);
+      if (!deps.env.SUMIT_CONFIRM_SECRET || deps.env.SUMIT_CONFIRM_SECRET === INSECURE_DEFAULT_SECRET) {
+        throw new Error("SUMIT_CONFIRM_SECRET is not set — refusing to charge. Set a random secret (e.g. `openssl rand -hex 32`).");
+      }
       const account = resolveAccount(deps.accounts, deps.env, a.account);
       const amount = amountOf(a.item);
       const binding: ChargeBinding = { account: account.name, customer: a.customerExternalId, amount, currency: a.currency, itemsHash: itemsHash(a.item) };
@@ -95,12 +100,14 @@ export function registerChargeTools(server: McpServer, deps: ToolDeps): void {
         : buildOneOffChargePayload({ ...common, item: { name: a.item.name, description: a.item.description, unitPrice: a.item.unitPrice, quantity: a.item.quantity, currency: a.currency } });
 
       try {
-        const data = await sumitPostRaw(`${SUMIT_BASE_URL}${path}`, payload, { fetchImpl: deps.fetchImpl });
+        const data = await sumitPostRaw(`${SUMIT_BASE_URL}${path}`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
         auditCharge("execute", `account=${account.name} customer=${a.customerExternalId} amount=${amount} ${a.currency}`);
         return ok(normalizeChargeResponse({ Status: "Success", Data: data }));
       } catch (err) {
-        auditCharge("execute-failed", `account=${account.name} customer=${a.customerExternalId} amount=${amount}: ${String((err as Error).message)}`);
-        throw err;
+        const raw = String((err as Error)?.message ?? err);
+        const safeMsg = account.apiKey ? raw.split(account.apiKey).join("***") : raw;
+        auditCharge("execute-failed", `account=${account.name} customer=${a.customerExternalId} amount=${amount}: ${safeMsg}`);
+        throw new Error(safeMsg);
       }
     },
   );

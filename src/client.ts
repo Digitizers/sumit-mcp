@@ -12,6 +12,7 @@ export class SumitError extends Error {
 
 interface PostOpts {
   fetchImpl?: typeof fetch;
+  apiKey?: string;
 }
 
 interface SumitEnvelope {
@@ -70,6 +71,7 @@ export async function sumitPostRaw(
   opts: PostOpts = {},
 ): Promise<unknown> {
   const fetchImpl = opts.fetchImpl ?? fetch;
+  const clean = (m: string) => redactText(opts.apiKey ? m.split(opts.apiKey).join("***") : m);
   let res: Awaited<ReturnType<typeof fetch>>;
   try {
     res = await fetchImpl(url, {
@@ -78,12 +80,12 @@ export async function sumitPostRaw(
       body: JSON.stringify(body),
     });
   } catch (err) {
-    throw new SumitError(`network error calling ${url}: ${redactText(String(err))}`);
+    throw new SumitError(`network error calling ${url}: ${clean(String(err))}`);
   }
   if (!res.ok) throw new SumitError(`SUMIT HTTP ${res.status} on ${url}`);
   const env = (await res.json()) as SumitEnvelope;
   if (env.Status !== "Success") {
-    throw new SumitError(redactText(env.UserErrorMessage || env.Status || "SUMIT request failed"), env.Status ?? undefined);
+    throw new SumitError(clean(env.UserErrorMessage || env.Status || "SUMIT request failed"), env.Status ?? undefined);
   }
   return env.Data;
 }

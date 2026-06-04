@@ -32,4 +32,21 @@ describe("write tools", () => {
     // for all non-charge document creations. Adjusted to the library's actual output.
     expect(res.content[0].text).toContain("document.created");
   });
+
+  it("does not leak the APIKey when the create endpoint returns an error", async () => {
+    const srv = fakeServer();
+    const errFetch = vi.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({ Status: "Error", UserErrorMessage: "auth failed for key-main", Data: null }),
+      text: async () => "",
+    })) as any;
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl: errFetch });
+    const handler = srv.tools.get("sumit_create_document")!.handler;
+    await expect(handler({ documentType: 0, customerName: "Acme", items: [{ name: "S", unitPrice: 100 }] })).rejects.toThrow();
+    try {
+      await handler({ documentType: 0, customerName: "Acme", items: [{ name: "S", unitPrice: 100 }] });
+    } catch (e) {
+      expect((e as Error).message).not.toContain("key-main");
+    }
+  });
 });

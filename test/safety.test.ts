@@ -41,6 +41,11 @@ describe("safety: amount cap", () => {
     expect(() => assertUnderCap(6000, {})).toThrow(/cap/i);
     expect(() => assertUnderCap(5000, {})).not.toThrow();
   });
+  it("rejects a non-positive or non-finite amount (floor)", () => {
+    expect(() => assertUnderCap(-5000, { SUMIT_MAX_CHARGE: "5000" })).toThrow(/positive|invalid/i);
+    expect(() => assertUnderCap(0, { SUMIT_MAX_CHARGE: "5000" })).toThrow(/positive|invalid/i);
+    expect(() => assertUnderCap(Number.POSITIVE_INFINITY, {})).toThrow(/positive|finite|invalid/i);
+  });
 });
 
 describe("safety: confirmation token", () => {

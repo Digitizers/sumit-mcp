@@ -23,7 +23,7 @@ See [`.claude/skills/sumit-mcp/references/installation.md`](.claude/skills/sumit
 
 ## Safety
 
-Charging requires `SUMIT_ALLOW_CHARGE=1`, always goes prepare → user approval → execute, and needs a browser-minted one-time card token. See the skill's safety ladder.
+Charging requires `SUMIT_ALLOW_CHARGE=1`, always goes prepare → user approval → execute, and needs a browser-minted one-time card token. See the skill's safety ladder. Set `SUMIT_CONFIRM_SECRET` to a fixed random value (e.g. `openssl rand -hex 32`); charging refuses to run without it.
 
 ## Links
 

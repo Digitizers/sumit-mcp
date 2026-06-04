@@ -52,7 +52,7 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         language: a.language,
         sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : undefined,
       });
-      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl });
+      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));
     },
   );

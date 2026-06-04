@@ -22,6 +22,9 @@ export function assertChargeEnabled(env: Env): void {
 
 /** Per-account ceiling. Malformed or unset SUMIT_MAX_CHARGE fails closed to the default 5000. */
 export function assertUnderCap(amount: number, env: Env): void {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(`invalid charge amount ${amount} (must be a positive, finite number).`);
+  }
   const parsed = Number(env.SUMIT_MAX_CHARGE);
   const cap = Number.isFinite(parsed) ? parsed : 5000; // fail-closed: bad/unset cap → default ceiling
   if (amount > cap) {

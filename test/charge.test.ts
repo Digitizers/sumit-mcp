@@ -68,4 +68,13 @@ describe("charge tools", () => {
       srv.tools.get("sumit_prepare_charge")!.handler({ ...prepInput, item: { ...prepInput.item, unitPrice: 99999 } }),
     ).rejects.toThrow(/cap/i);
   });
+
+  it("execute refuses when SUMIT_CONFIRM_SECRET is unset (charging enabled)", async () => {
+    const srv = fakeServer();
+    const env = { SUMIT_DEFAULT_ACCOUNT: "main", SUMIT_ALLOW_CHARGE: "1", SUMIT_MAX_CHARGE: "5000" }; // no SUMIT_CONFIRM_SECRET
+    registerChargeTools(srv as any, deps(env, okFetch()));
+    await expect(
+      srv.tools.get("sumit_execute_charge")!.handler({ ...prepInput, confirmationToken: "x", singleUseToken: "t" }),
+    ).rejects.toThrow(/SUMIT_CONFIRM_SECRET/);
+  });
 });
