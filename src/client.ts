@@ -62,3 +62,30 @@ export async function sumitPost(
   }
   return env.Data;
 }
+
+/** POST a fully-formed SUMIT body (Credentials already present) and unwrap the envelope. */
+export async function sumitPostRaw(
+  url: string,
+  body: unknown,
+  opts: PostOpts = {},
+): Promise<unknown> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  let res: Awaited<ReturnType<typeof fetch>>;
+  try {
+    res = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw new SumitError(`network error calling ${url}: ${redactText(String(err))}`);
+  }
+  if (!res.ok) throw new SumitError(`SUMIT HTTP ${res.status} on ${url}`);
+  const env = (await res.json()) as SumitEnvelope;
+  if (env.Status !== "Success") {
+    throw new SumitError(redactText(env.UserErrorMessage || env.Status || "SUMIT request failed"), env.Status ?? undefined);
+  }
+  return env.Data;
+}
+
+export const SUMIT_BASE_URL = BASE_URL;
