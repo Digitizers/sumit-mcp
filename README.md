@@ -1,1 +1,35 @@
-# sumit-mcp
+# SUMIT MCP — Claude Code & OpenClaw Skill
+
+[![CI](https://github.com/Digitizers/sumit-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Digitizers/sumit-mcp/actions/workflows/ci.yml)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-skill-d97757)](https://docs.claude.com/en/docs/claude-code)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-skill-purple)](https://github.com/Digitizers)
+[![SUMIT](https://img.shields.io/badge/SUMIT-billing-0a7cff)](https://sumit.co.il)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+
+> An MCP server that turns SUMIT (formerly OfficeGuy) into agent-operable Israeli billing — read invoices and debt, issue חשבונית/קבלה/חשבון עסקה, and charge with a confirm-first safety model. The operational playbook for billing your clients from Claude Code or OpenClaw.
+
+## Features
+
+- ✅ **14 tools** across read (invoices, debt, catalog), write (issue/send/cancel documents, customers), and charge.
+- ✅ **Layered charge safety** — env opt-in, prepare→execute confirmation token, amount cap, redacted audit. Money never moves silently.
+- ✅ **Multi-account** via env; pick the account per call.
+- ✅ Built on the in-house `sumit-api` library (battle-tested payload builders + redaction).
+- ✅ Local stdio server — no secrets leave your machine.
+
+## Quick start
+
+See [`.claude/skills/sumit-mcp/references/installation.md`](.claude/skills/sumit-mcp/references/installation.md): clone, `npm install && npm run build`, set `SUMIT_*` env, connect via `claude mcp add` or `.mcp.json`.
+
+## Safety
+
+Charging requires `SUMIT_ALLOW_CHARGE=1`, always goes prepare → user approval → execute, and needs a browser-minted one-time card token. See the skill's safety ladder.
+
+## Links
+
+- SUMIT API: <https://app.sumit.co.il/developers/api/>
+- Companion runtime libs: [`sumit-api`](https://github.com/Digitizers/sumit-api), [`sumit-react`](https://github.com/Digitizers/sumit-react)
+
+---
+
+Built with ❤️ for OpenClaw by [Digitizer](https://www.digitizer.studio)

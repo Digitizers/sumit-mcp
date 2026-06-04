@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  no-leak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block personal identifiers in skill payload
+        run: |
+          if grep -rniE 'benkalsky|דיגיטייזר|\b(Ben|Avi) [A-Z]' .claude/ src/ 2>/dev/null; then
+            echo "::error::personal identifier found in payload"; exit 1
+          fi
+      - name: Block secret-shaped strings (API keys / tokens) in tracked files
+        run: |
+          if grep -rniE '(api[_-]?key|apikey)\s*[:=]\s*["'"'"']?[A-Za-z0-9]{16,}' src/ .claude/ 2>/dev/null \
+             | grep -viE 'REPLACE_WITH|your-api-key|example|placeholder'; then
+            echo "::error::possible hard-coded secret"; exit 1
+          fi
