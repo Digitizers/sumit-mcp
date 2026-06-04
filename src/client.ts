@@ -1,0 +1,64 @@
+import type { SumitAccount } from "./accounts.js";
+import { redactText } from "./redact.js";
+
+const BASE_URL = "https://api.sumit.co.il";
+
+export class SumitError extends Error {
+  constructor(message: string, readonly status?: string, readonly technical?: string) {
+    super(message);
+    this.name = "SumitError";
+  }
+}
+
+interface PostOpts {
+  fetchImpl?: typeof fetch;
+}
+
+interface SumitEnvelope {
+  Status?: string;
+  UserErrorMessage?: string | null;
+  TechnicalErrorDetails?: string | null;
+  Data?: unknown;
+}
+
+/** Scrub the account's own apiKey from a message, then apply general redaction. */
+function scrub(account: SumitAccount, msg: string): string {
+  const stripped = account.apiKey ? msg.split(account.apiKey).join("***") : msg;
+  return redactText(stripped);
+}
+
+/** POST a SUMIT endpoint with injected Credentials; return unwrapped `Data` or throw `SumitError`. */
+export async function sumitPost(
+  account: SumitAccount,
+  path: string,
+  params: Record<string, unknown>,
+  opts: PostOpts = {},
+): Promise<unknown> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const body = {
+    Credentials: { CompanyID: account.companyId, APIKey: account.apiKey },
+    ...params,
+  };
+
+  let res: Awaited<ReturnType<typeof fetch>>;
+  try {
+    res = await fetchImpl(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw new SumitError(`network error calling ${path}: ${scrub(account, String(err))}`);
+  }
+
+  if (!res.ok) {
+    throw new SumitError(`SUMIT HTTP ${res.status} on ${path}`);
+  }
+
+  const env = (await res.json()) as SumitEnvelope;
+  if (env.Status !== "Success") {
+    const msg = scrub(account, env.UserErrorMessage || env.Status || "SUMIT request failed");
+    throw new SumitError(msg, env.Status ?? undefined, scrub(account, env.TechnicalErrorDetails ?? ""));
+  }
+  return env.Data;
+}
