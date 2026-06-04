@@ -65,6 +65,11 @@ export function verifyConfirmation(token: string, binding: ChargeBinding, secret
   } catch {
     throw new Error("invalid confirmation token (unparseable).");
   }
+  // base64url decode is lenient (silently drops trailing partial-byte chars), so a tampered
+  // token can decode to identical bytes. Require an exact round-trip to reject any stray edits.
+  if (Buffer.from(JSON.stringify(decoded)).toString("base64url") !== token) {
+    throw new Error("invalid confirmation token (malformed encoding).");
+  }
   const expectedSig = sign(`${bindingString(decoded.b)}|${decoded.nonce}|${decoded.exp}`, secret);
   if (typeof decoded.sig !== "string" || !safeEqual(expectedSig, decoded.sig)) {
     throw new Error("invalid confirmation token (signature mismatch).");
