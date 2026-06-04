@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { redactText } from "./redact.js";
 
 type Env = Record<string, string | undefined>;
@@ -20,10 +20,11 @@ export function assertChargeEnabled(env: Env): void {
   }
 }
 
-/** Per-account ceiling. Default cap 5000 if unset. */
+/** Per-account ceiling. Malformed or unset SUMIT_MAX_CHARGE fails closed to the default 5000. */
 export function assertUnderCap(amount: number, env: Env): void {
-  const cap = Number(env.SUMIT_MAX_CHARGE ?? "5000");
-  if (Number.isFinite(cap) && amount > cap) {
+  const parsed = Number(env.SUMIT_MAX_CHARGE);
+  const cap = Number.isFinite(parsed) ? parsed : 5000; // fail-closed: bad/unset cap → default ceiling
+  if (amount > cap) {
     throw new Error(`charge amount ${amount} exceeds cap ${cap} (SUMIT_MAX_CHARGE).`);
   }
 }
@@ -33,6 +34,13 @@ const issued = new Map<string, number>();
 
 function sign(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
 }
 
 function bindingString(b: ChargeBinding): string {
@@ -58,7 +66,9 @@ export function verifyConfirmation(token: string, binding: ChargeBinding, secret
     throw new Error("invalid confirmation token (unparseable).");
   }
   const expectedSig = sign(`${bindingString(decoded.b)}|${decoded.nonce}|${decoded.exp}`, secret);
-  if (expectedSig !== decoded.sig) throw new Error("invalid confirmation token (signature mismatch).");
+  if (typeof decoded.sig !== "string" || !safeEqual(expectedSig, decoded.sig)) {
+    throw new Error("invalid confirmation token (signature mismatch).");
+  }
 
   const storedExp = issued.get(decoded.nonce);
   if (storedExp === undefined) throw new Error("confirmation token unknown or already used.");

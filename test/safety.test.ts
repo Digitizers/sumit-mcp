@@ -33,6 +33,14 @@ describe("safety: amount cap", () => {
   it("allows at or below the cap", () => {
     expect(() => assertUnderCap(5000, { SUMIT_MAX_CHARGE: "5000" })).not.toThrow();
   });
+  it("fails closed to the default cap when SUMIT_MAX_CHARGE is non-numeric", () => {
+    expect(() => assertUnderCap(6000, { SUMIT_MAX_CHARGE: "unlimited" })).toThrow(/cap/i);
+    expect(() => assertUnderCap(4000, { SUMIT_MAX_CHARGE: "unlimited" })).not.toThrow();
+  });
+  it("applies the default cap (5000) when SUMIT_MAX_CHARGE is unset", () => {
+    expect(() => assertUnderCap(6000, {})).toThrow(/cap/i);
+    expect(() => assertUnderCap(5000, {})).not.toThrow();
+  });
 });
 
 describe("safety: confirmation token", () => {
