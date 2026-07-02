@@ -7,8 +7,8 @@
 ```bash
 git clone https://github.com/Digitizers/sumit-mcp.git
 cd sumit-mcp
-npm install
-npm run build
+pnpm install
+pnpm build
 ```
 
 ## Get SUMIT credentials

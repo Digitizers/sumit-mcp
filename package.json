@@ -14,12 +14,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "sumit-api": "^0.3.1",
+    "sumit-api": "^0.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
+    "vitest": "^4.1.0",
     "@types/node": "^20.14.0"
   },
   "engines": { "node": ">=20" }
