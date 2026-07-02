@@ -19,7 +19,7 @@
 
 ## Quick start
 
-See [`.claude/skills/sumit-mcp/references/installation.md`](.claude/skills/sumit-mcp/references/installation.md): clone, `npm install && npm run build`, set `SUMIT_*` env, connect via `claude mcp add` or `.mcp.json`.
+See [`.claude/skills/sumit-mcp/references/installation.md`](.claude/skills/sumit-mcp/references/installation.md): clone, `pnpm install && pnpm build`, set `SUMIT_*` env, connect via `claude mcp add` or `.mcp.json`.
 
 ## Safety
 
