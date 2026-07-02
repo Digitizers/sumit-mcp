@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "sumit-api": "^0.3.1",
+    "sumit-api": "^0.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
