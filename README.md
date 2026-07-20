@@ -35,3 +35,11 @@ The full threat model — what a misbehaving agent could try and which control s
 ---
 
 Built with ❤️ for OpenClaw by [Digitizer](https://www.digitizer.studio)
+
+### Windows note
+
+The plugin ships its skill through a git **symlink** (`skills/` → the in-repo
+source). Cloning with `core.symlinks=false` — the default on many Windows
+setups — turns that link into a plain text file and the skill will not load.
+Before installing on Windows, enable Developer Mode and run
+`git config --global core.symlinks true`, or use WSL. macOS/Linux need nothing.
