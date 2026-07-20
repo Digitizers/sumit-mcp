@@ -2,7 +2,7 @@
   "mcpServers": {
     "sumit": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/bundle.mjs"],
       "env": {
         "SUMIT_DEFAULT_ACCOUNT": "${SUMIT_DEFAULT_ACCOUNT}",
         "SUMIT_MAIN_COMPANY_ID": "${SUMIT_MAIN_COMPANY_ID}",
