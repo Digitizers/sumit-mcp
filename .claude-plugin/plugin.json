@@ -1,0 +1,8 @@
+{
+  "name": "sumit-mcp",
+  "displayName": "SUMIT MCP",
+  "description": "Turns SUMIT (OfficeGuy) billing into agent-operable tools — customers, invoices, charges with an allow/charge cap, and document flows.",
+  "author": {
+    "name": "Digitizer"
+  }
+}
