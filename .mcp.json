@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "sumit": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
+      "env": {
+        "SUMIT_DEFAULT_ACCOUNT": "${SUMIT_DEFAULT_ACCOUNT}",
+        "SUMIT_MAIN_COMPANY_ID": "${SUMIT_MAIN_COMPANY_ID}",
+        "SUMIT_MAIN_API_KEY": "${SUMIT_MAIN_API_KEY}",
+        "SUMIT_ALLOW_CHARGE": "${SUMIT_ALLOW_CHARGE}",
+        "SUMIT_MAX_CHARGE": "${SUMIT_MAX_CHARGE}",
+        "SUMIT_CONFIRM_SECRET": "${SUMIT_CONFIRM_SECRET}"
+      }
+    }
+  }
+}
