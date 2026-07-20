@@ -24,6 +24,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # dist/bundle.mjs is committed (the plugin runtime). Fail if a src change
+      # left it stale — the build above just regenerated it.
+      - name: Bundle freshness
+        run: git diff --exit-code dist/bundle.mjs || { echo "::error::dist/bundle.mjs is stale — run pnpm build and commit it"; exit 1; }
 
   no-leak:
     runs-on: ubuntu-latest
