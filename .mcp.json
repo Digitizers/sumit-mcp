@@ -3,7 +3,7 @@
     "sumit": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/dist/bundle.mjs"
+        "${CLAUDE_PLUGIN_ROOT:-.}/dist/bundle.mjs"
       ],
       "env": {
         "SUMIT_DEFAULT_ACCOUNT": "${SUMIT_DEFAULT_ACCOUNT:-main}",
