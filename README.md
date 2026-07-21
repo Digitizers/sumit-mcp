@@ -21,7 +21,7 @@
 
 See [`.claude/skills/sumit-mcp/references/installation.md`](.claude/skills/sumit-mcp/references/installation.md): clone, `pnpm install && pnpm build`, set `SUMIT_*` env, connect via `claude mcp add` or `.mcp.json`.
 
-The committed [`.mcp.json`](.mcp.json) holds env-var placeholders only and runs the committed `dist/bundle.mjs`, so it works both as the plugin's MCP config (`${CLAUDE_PLUGIN_ROOT}` set by the plugin cache) and straight from a clone — including claude.ai cloud sessions, where the `SUMIT_*` values come from the cloud environment's env vars. Without `SUMIT_MAIN_COMPANY_ID`/`SUMIT_MAIN_API_KEY` set, the server simply doesn't start; charging additionally stays behind its own env opt-ins (below).
+The committed [`.mcp.json`](.mcp.json) holds env-var placeholders only and runs the committed `dist/bundle.mjs`, so it works both as the plugin's MCP config (`${CLAUDE_PLUGIN_ROOT}` set by the plugin cache) and straight from a clone — including claude.ai cloud sessions, where the `SUMIT_*` values come from the cloud environment's env vars. `SUMIT_MAIN_COMPANY_ID`/`SUMIT_MAIN_API_KEY` are deliberately bare `${VAR}` placeholders: when they're unset, Claude Code rejects the config and never launches the server (fail closed) — the server process itself would boot with zero accounts and only error at tool-call time. Charging additionally stays behind its own env opt-ins (below).
 
 ## Safety
 
