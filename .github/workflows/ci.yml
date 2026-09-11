@@ -29,6 +29,36 @@ jobs:
       - name: Bundle freshness
         run: git diff --exit-code dist/bundle.mjs || { echo "::error::dist/bundle.mjs is stale — run pnpm build and commit it"; exit 1; }
 
+  # engines.node is ">=20" but the test toolchain (Vitest 5) needs 22.12+, so the
+  # suite above can never run on 20. dist/bundle.mjs is committed and fully
+  # self-contained, so run the shipped artifact itself on the declared floor.
+  runtime-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Shipped bundle starts and lists its tools on the engines floor
+        env:
+          SUMIT_CI_COMPANY_ID: "1"
+          SUMIT_CI_API_KEY: not-a-real-key
+          SUMIT_DEFAULT_ACCOUNT: ci
+        run: |
+          set -euo pipefail
+          printf '%s\n%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | node dist/bundle.mjs > out.jsonl
+          count=$(tail -1 out.jsonl | jq '.result.tools | length')
+          echo "node $(node -v): tools/list returned $count tools"
+          if [ "$count" != "14" ]; then
+            echo "::error::expected 14 tools on Node 20, got $count"; exit 1
+          fi
+
   no-leak:
     runs-on: ubuntu-latest
     steps:
