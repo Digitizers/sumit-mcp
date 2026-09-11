@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 
-> An MCP server that turns SUMIT (formerly OfficeGuy) into agent-operable Israeli billing — read invoices and debt, issue חשבונית/קבלה/חשבון עסקה, and charge with a confirm-first safety model. The operational playbook for billing your clients from Claude Code or OpenClaw.
+> An MCP server that turns [SUMIT](https://digitizer.li/sumit) (formerly OfficeGuy) into agent-operable Israeli billing — read invoices and debt, issue חשבונית/קבלה/חשבון עסקה, and charge with a confirm-first safety model. The operational playbook for billing your clients from Claude Code or OpenClaw.
 
 ## Features
 
