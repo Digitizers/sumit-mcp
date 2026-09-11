@@ -46,4 +46,6 @@ pnpm typecheck    # tsc --noEmit
 pnpm build        # tsc → dist/
 ```
 
+**Development needs Node 22** (`.nvmrc`, and what CI runs) — Vitest 5 refuses to start on Node 20. The published `engines` field stays `>=20` because that is the *server's* runtime floor, not the test toolchain's.
+
 Branches: `fix/*`, `feat/*`, `chore/*`. PRs to `main`. Conventional-commit-ish messages.
