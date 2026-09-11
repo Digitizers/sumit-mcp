@@ -39,7 +39,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Exactly 20.0.0, not the latest 20.x: `engines.node: ">=20"`
+          # advertises 20.0.0, so anything newer would let an API added
+          # mid-lifecycle pass a job that claims to test the floor.
+          node-version: 20.0.0
 
       - name: Shipped bundle starts and lists its tools on the engines floor
         env:
