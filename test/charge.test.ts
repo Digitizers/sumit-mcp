@@ -9,7 +9,7 @@ function fakeServer() {
 function okFetch() {
   return vi.fn(async () => ({
     ok: true, status: 200,
-    json: async () => ({ Status: "Success", Data: { Payment: { Status: "000", ValidPayment: true, ID: "p1" } } }),
+    json: async () => ({ Data: { Payment: { Status: "000", ValidPayment: true, ID: "p1" } }, Status: 0, UserErrorMessage: null }),
     text: async () => "",
   })) as any;
 }

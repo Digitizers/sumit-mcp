@@ -21547,6 +21547,12 @@ var SumitError = class extends Error {
   status;
   technical;
 };
+function isSuccess(status) {
+  return status === 0 || status === "Success";
+}
+function envelopeMessage(env) {
+  return env.UserErrorMessage || (env.Status != null ? String(env.Status) : "") || "SUMIT request failed";
+}
 function scrub(account, msg) {
   const stripped = account.apiKey ? msg.split(account.apiKey).join("***") : msg;
   return redactText(stripped);
@@ -21571,8 +21577,8 @@ async function sumitPost(account, path, params, opts = {}) {
     throw new SumitError(`SUMIT HTTP ${res.status} on ${path}`);
   }
   const env = await res.json();
-  if (env.Status !== "Success") {
-    const msg = scrub(account, env.UserErrorMessage || env.Status || "SUMIT request failed");
+  if (!isSuccess(env.Status)) {
+    const msg = scrub(account, envelopeMessage(env));
     throw new SumitError(msg, env.Status ?? void 0, scrub(account, env.TechnicalErrorDetails ?? ""));
   }
   return env.Data;
@@ -21592,8 +21598,8 @@ async function sumitPostRaw(url, body, opts = {}) {
   }
   if (!res.ok) throw new SumitError(`SUMIT HTTP ${res.status} on ${url}`);
   const env = await res.json();
-  if (env.Status !== "Success") {
-    throw new SumitError(clean(env.UserErrorMessage || env.Status || "SUMIT request failed"), env.Status ?? void 0);
+  if (!isSuccess(env.Status)) {
+    throw new SumitError(clean(envelopeMessage(env)), env.Status ?? void 0);
   }
   return env.Data;
 }
@@ -21660,9 +21666,20 @@ function registerReadTools(server, deps) {
     {
       title: "Get debt report",
       description: "Get the debt report across all SUMIT customers.",
-      inputSchema: { ...accountField }
+      inputSchema: {
+        ...accountField,
+        debitSource: external_exports.number().int().positive().optional().describe("SUMIT DebitSource enum; defaults to 1. The endpoint rejects 0 as missing."),
+        creditSource: external_exports.number().int().positive().optional().describe("SUMIT CreditSource enum; defaults to 2. The endpoint rejects 0 as missing.")
+      }
     },
-    async ({ account }) => ok(await call("/accounting/documents/getdebtreport/", {}, account))
+    // The endpoint requires both enums — an empty body always fails with "שדה חסר: DebitSource".
+    async ({ account, debitSource, creditSource }) => ok(
+      await call(
+        "/accounting/documents/getdebtreport/",
+        { DebitSource: debitSource ?? 1, CreditSource: creditSource ?? 2 },
+        account
+      )
+    )
   );
   server.registerTool(
     "sumit_list_income_items",

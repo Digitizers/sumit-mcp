@@ -7,7 +7,7 @@ function fakeServer() {
   return { tools, registerTool(n: string, _d: any, h: Function) { tools.set(n, { handler: h }); } };
 }
 function okFetch(data: unknown) {
-  return vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ Status: "Success", Data: data }), text: async () => "" })) as any;
+  return vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ Data: data, Status: 0, UserErrorMessage: null }), text: async () => "" })) as any;
 }
 
 describe("write tools", () => {
@@ -37,7 +37,7 @@ describe("write tools", () => {
     const srv = fakeServer();
     const errFetch = vi.fn(async () => ({
       ok: true, status: 200,
-      json: async () => ({ Status: "Error", UserErrorMessage: "auth failed for key-main", Data: null }),
+      json: async () => ({ Data: null, Status: 1, UserErrorMessage: "auth failed for key-main" }),
       text: async () => "",
     })) as any;
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl: errFetch });

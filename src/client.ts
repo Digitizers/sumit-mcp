@@ -4,7 +4,7 @@ import { redactText } from "./redact.js";
 const BASE_URL = "https://api.sumit.co.il";
 
 export class SumitError extends Error {
-  constructor(message: string, readonly status?: string, readonly technical?: string) {
+  constructor(message: string, readonly status?: number | string, readonly technical?: string) {
     super(message);
     this.name = "SumitError";
   }
@@ -16,10 +16,21 @@ interface PostOpts {
 }
 
 interface SumitEnvelope {
-  Status?: string;
+  // The live API answers with a numeric Status (0 = success, 1 = user error, 2 = bad request);
+  // the string form is kept only for forward-compatibility.
+  Status?: number | string;
   UserErrorMessage?: string | null;
   TechnicalErrorDetails?: string | null;
   Data?: unknown;
+}
+
+function isSuccess(status: SumitEnvelope["Status"]): boolean {
+  return status === 0 || status === "Success";
+}
+
+/** Fall back to the raw Status when the envelope carries no human-readable error. */
+function envelopeMessage(env: SumitEnvelope): string {
+  return env.UserErrorMessage || (env.Status != null ? String(env.Status) : "") || "SUMIT request failed";
 }
 
 /** Scrub the account's own apiKey from a message, then apply general redaction. */
@@ -57,8 +68,8 @@ export async function sumitPost(
   }
 
   const env = (await res.json()) as SumitEnvelope;
-  if (env.Status !== "Success") {
-    const msg = scrub(account, env.UserErrorMessage || env.Status || "SUMIT request failed");
+  if (!isSuccess(env.Status)) {
+    const msg = scrub(account, envelopeMessage(env));
     throw new SumitError(msg, env.Status ?? undefined, scrub(account, env.TechnicalErrorDetails ?? ""));
   }
   return env.Data;
@@ -84,8 +95,8 @@ export async function sumitPostRaw(
   }
   if (!res.ok) throw new SumitError(`SUMIT HTTP ${res.status} on ${url}`);
   const env = (await res.json()) as SumitEnvelope;
-  if (env.Status !== "Success") {
-    throw new SumitError(clean(env.UserErrorMessage || env.Status || "SUMIT request failed"), env.Status ?? undefined);
+  if (!isSuccess(env.Status)) {
+    throw new SumitError(clean(envelopeMessage(env)), env.Status ?? undefined);
   }
   return env.Data;
 }

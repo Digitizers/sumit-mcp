@@ -76,9 +76,31 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
     {
       title: "Get debt report",
       description: "Get the debt report across all SUMIT customers.",
-      inputSchema: { ...accountField },
+      inputSchema: {
+        ...accountField,
+        debitSource: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("SUMIT DebitSource enum; defaults to 1. The endpoint rejects 0 as missing."),
+        creditSource: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("SUMIT CreditSource enum; defaults to 2. The endpoint rejects 0 as missing."),
+      },
     },
-    async ({ account }) => ok(await call("/accounting/documents/getdebtreport/", {}, account)),
+    // The endpoint requires both enums — an empty body always fails with "שדה חסר: DebitSource".
+    async ({ account, debitSource, creditSource }) =>
+      ok(
+        await call(
+          "/accounting/documents/getdebtreport/",
+          { DebitSource: debitSource ?? 1, CreditSource: creditSource ?? 2 },
+          account,
+        ),
+      ),
   );
 
   server.registerTool(
