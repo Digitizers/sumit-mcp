@@ -36,7 +36,7 @@ describe("read tools", () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,
       status: 200,
-      json: async () => ({ Status: "Success", Data: { Documents: [{ ID: 7 }] } }),
+      json: async () => ({ Data: { Documents: [{ ID: 7 }] }, Status: 0, UserErrorMessage: null }),
       text: async () => "",
     })) as any;
     registerReadTools(srv as any, {
@@ -48,5 +48,29 @@ describe("read tools", () => {
     const res = await handler({});
     expect(fetchImpl.mock.calls[0][0]).toContain("/accounting/documents/list/");
     expect(res.content[0].text).toContain("\"ID\": 7");
+  });
+  it("sumit_get_debt_report sends the required DebitSource/CreditSource enums", async () => {
+    const srv = fakeServer();
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ Data: { Debts: [] }, Status: 0, UserErrorMessage: null }),
+      text: async () => "",
+    })) as any;
+    registerReadTools(srv as any, {
+      accounts: new Map([["main", account]]),
+      env: { SUMIT_DEFAULT_ACCOUNT: "main" },
+      fetchImpl,
+    });
+    const { handler } = srv.tools.get("sumit_get_debt_report")!;
+    await handler({});
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(body.DebitSource).toBe(1);
+    expect(body.CreditSource).toBe(2);
+
+    await handler({ debitSource: 3, creditSource: 4 });
+    const override = JSON.parse(fetchImpl.mock.calls[1][1].body);
+    expect(override.DebitSource).toBe(3);
+    expect(override.CreditSource).toBe(4);
   });
 });
