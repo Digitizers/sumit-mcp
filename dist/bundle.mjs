@@ -21949,22 +21949,23 @@ function registerReadTools(server, deps) {
     "sumit_list_documents",
     {
       title: "List documents",
-      description: "List SUMIT accounting documents (invoices, receipts, quotes) filtered by date range, type, or customer.",
+      description: "List SUMIT accounting documents (invoices, receipts, quotes) filtered by date range or type. SUMIT has no customer filter on this endpoint: narrow by date and read the customer off each document. Returns one page per call; HasNextPage in the response says whether more exist.",
       inputSchema: {
         ...accountField,
         fromDate: external_exports.string().optional().describe("ISO date lower bound."),
         toDate: external_exports.string().optional().describe("ISO date upper bound."),
         documentType: external_exports.number().optional().describe("SUMIT document type code (0=Invoice, 2=Receipt, 12=Quote)."),
-        customerId: external_exports.string().optional(),
-        page: external_exports.number().optional()
+        startIndex: external_exports.number().int().nonnegative().optional().describe("SUMIT Paging.StartIndex. Omit for the first page."),
+        pageSize: external_exports.number().int().min(10).max(1e3).optional().describe("Documents per page. SUMIT defaults to 10 and accepts 10 to 1000.")
       }
     },
-    async ({ account, fromDate, toDate, documentType, customerId, page }) => ok(await call("/accounting/documents/list/", {
-      FromDate: fromDate,
-      ToDate: toDate,
-      Type: documentType,
-      CustomerID: customerId,
-      Page: page ?? 1
+    // SUMIT ignores field names it does not know instead of rejecting them, so a wrong name
+    // returns the unfiltered first page with HasNextPage true — an endless loop for any pager.
+    async ({ account, fromDate, toDate, documentType, startIndex, pageSize }) => ok(await call("/accounting/documents/list/", {
+      DateFrom: fromDate,
+      DateTo: toDate,
+      DocumentTypes: documentType === void 0 ? void 0 : [documentType],
+      Paging: startIndex === void 0 && pageSize === void 0 ? void 0 : { StartIndex: startIndex, PageSize: pageSize }
     }, account))
   );
   server.registerTool(
@@ -21974,7 +21975,7 @@ function registerReadTools(server, deps) {
       description: "Get full details of one SUMIT document by ID, or by document type + number.",
       inputSchema: { ...accountField, documentId: external_exports.string().optional(), documentType: external_exports.number().optional(), documentNumber: external_exports.string().optional() }
     },
-    async ({ account, documentId, documentType, documentNumber }) => ok(await call("/accounting/documents/getdetails/", { DocumentID: documentId, Type: documentType, Number: documentNumber }, account))
+    async ({ account, documentId, documentType, documentNumber }) => ok(await call("/accounting/documents/getdetails/", { DocumentID: documentId, DocumentType: documentType, DocumentNumber: documentNumber }, account))
   );
   server.registerTool(
     "sumit_get_document_pdf",
