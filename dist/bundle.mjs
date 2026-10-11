@@ -21441,11 +21441,19 @@ function loadAccounts(env) {
     const raw = m[1];
     const apiKey = env[`SUMIT_${raw}_API_KEY`];
     const companyId = Number(env[key]);
-    if (!apiKey || !Number.isFinite(companyId)) continue;
+    if (!apiKey || isUnexpanded(apiKey) || !Number.isFinite(companyId)) continue;
     const name = raw.toLowerCase();
     accounts.set(name, { name, companyId, apiKey });
   }
   return accounts;
+}
+function isUnexpanded(value) {
+  return /^\$\{[^}]*\}$/.test(value.trim());
+}
+function requireAccounts(accounts) {
+  if (accounts.size === 0) {
+    throw new Error("no SUMIT accounts configured (set SUMIT_<NAME>_COMPANY_ID and SUMIT_<NAME>_API_KEY)");
+  }
 }
 function resolveAccount(accounts, env, requested) {
   if (accounts.size === 0) {
@@ -22312,6 +22320,7 @@ function registerChargeTools(server, deps) {
 async function main() {
   const env = process.env;
   const accounts = loadAccounts(env);
+  requireAccounts(accounts);
   const deps = { accounts, env };
   const server = new McpServer({ name: "sumit-mcp", version: "1.0.0" });
   registerReadTools(server, deps);

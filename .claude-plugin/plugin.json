@@ -4,5 +4,21 @@
   "description": "Turns SUMIT (OfficeGuy) billing into agent-operable tools — customers, invoices, charges with an allow/charge cap, and document flows.",
   "author": {
     "name": "Digitizer"
+  },
+  "mcpServers": {
+    "sumit": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/bundle.mjs"
+      ],
+      "env": {
+        "SUMIT_DEFAULT_ACCOUNT": "${SUMIT_DEFAULT_ACCOUNT:-main}",
+        "SUMIT_MAIN_COMPANY_ID": "${SUMIT_MAIN_COMPANY_ID}",
+        "SUMIT_MAIN_API_KEY": "${SUMIT_MAIN_API_KEY}",
+        "SUMIT_ALLOW_CHARGE": "${SUMIT_ALLOW_CHARGE:-0}",
+        "SUMIT_MAX_CHARGE": "${SUMIT_MAX_CHARGE:-5000}",
+        "SUMIT_CONFIRM_SECRET": "${SUMIT_CONFIRM_SECRET:-}"
+      }
+    }
   }
 }

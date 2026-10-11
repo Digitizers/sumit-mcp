@@ -15,11 +15,24 @@ export function loadAccounts(env: Env): Map<string, SumitAccount> {
     const raw = m[1];
     const apiKey = env[`SUMIT_${raw}_API_KEY`];
     const companyId = Number(env[key]);
-    if (!apiKey || !Number.isFinite(companyId)) continue;
+    if (!apiKey || isUnexpanded(apiKey) || !Number.isFinite(companyId)) continue;
     const name = raw.toLowerCase();
     accounts.set(name, { name, companyId, apiKey });
   }
   return accounts;
+}
+
+// Claude Code hands an unset `${VAR}` to the server as that literal text. Accepting it as
+// an API key would send real requests to SUMIT with a credential that can never work.
+function isUnexpanded(value: string): boolean {
+  return /^\$\{[^}]*\}$/.test(value.trim());
+}
+
+/** Startup guard: a server with no usable account can only fail, so refuse to start. */
+export function requireAccounts(accounts: Map<string, SumitAccount>): void {
+  if (accounts.size === 0) {
+    throw new Error("no SUMIT accounts configured (set SUMIT_<NAME>_COMPANY_ID and SUMIT_<NAME>_API_KEY)");
+  }
 }
 
 /** Pick the account for a call: explicit name → SUMIT_DEFAULT_ACCOUNT → sole account. */
