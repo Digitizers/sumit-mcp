@@ -30,7 +30,9 @@ describe("plugin MCP config", () => {
     expect(plugin?.env).toEqual(clone?.env);
   });
 
-  it("keeps the credentials as bare placeholders so an unset value fails closed", () => {
+  // No `:-default` on the credentials: an unset one must reach the server as the literal
+  // placeholder, which loadAccounts rejects, instead of a default that looks configured.
+  it("gives the credentials no default value", () => {
     expect(plugin?.env.SUMIT_MAIN_COMPANY_ID).toBe("${SUMIT_MAIN_COMPANY_ID}");
     expect(plugin?.env.SUMIT_MAIN_API_KEY).toBe("${SUMIT_MAIN_API_KEY}");
   });
