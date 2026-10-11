@@ -23,19 +23,33 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
     "sumit_list_documents",
     {
       title: "List documents",
-      description: "List SUMIT accounting documents (invoices, receipts, quotes) filtered by date range, type, or customer.",
+      description:
+        "List SUMIT accounting documents (invoices, receipts, quotes) filtered by date range or type. " +
+        "SUMIT has no customer filter on this endpoint: narrow by date and read the customer off each document. " +
+        "Returns one page per call; HasNextPage in the response says whether more exist.",
       inputSchema: {
         ...accountField,
         fromDate: z.string().optional().describe("ISO date lower bound."),
         toDate: z.string().optional().describe("ISO date upper bound."),
         documentType: z.number().optional().describe("SUMIT document type code (0=Invoice, 2=Receipt, 12=Quote)."),
-        customerId: z.string().optional(),
-        page: z.number().optional(),
+        startIndex: z.number().int().nonnegative().optional().describe("SUMIT Paging.StartIndex. Omit for the first page."),
+        pageSize: z
+          .number()
+          .int()
+          .min(10)
+          .max(1000)
+          .optional()
+          .describe("Documents per page. SUMIT defaults to 10 and accepts 10 to 1000."),
       },
     },
-    async ({ account, fromDate, toDate, documentType, customerId, page }) =>
+    // SUMIT ignores field names it does not know instead of rejecting them, so a wrong name
+    // returns the unfiltered first page with HasNextPage true — an endless loop for any pager.
+    async ({ account, fromDate, toDate, documentType, startIndex, pageSize }) =>
       ok(await call("/accounting/documents/list/", {
-        FromDate: fromDate, ToDate: toDate, Type: documentType, CustomerID: customerId, Page: page ?? 1,
+        DateFrom: fromDate,
+        DateTo: toDate,
+        DocumentTypes: documentType === undefined ? undefined : [documentType],
+        Paging: startIndex === undefined && pageSize === undefined ? undefined : { StartIndex: startIndex, PageSize: pageSize },
       }, account)),
   );
 
@@ -47,7 +61,7 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
       inputSchema: { ...accountField, documentId: z.string().optional(), documentType: z.number().optional(), documentNumber: z.string().optional() },
     },
     async ({ account, documentId, documentType, documentNumber }) =>
-      ok(await call("/accounting/documents/getdetails/", { DocumentID: documentId, Type: documentType, Number: documentNumber }, account)),
+      ok(await call("/accounting/documents/getdetails/", { DocumentID: documentId, DocumentType: documentType, DocumentNumber: documentNumber }, account)),
   );
 
   server.registerTool(
