@@ -11,7 +11,7 @@
 
 ## Features
 
-- ✅ **14 tools** across read (invoices, debt, catalog), write (issue/send/cancel documents, customers), and charge.
+- ✅ **15 tools** across read (invoices, debt, standing orders, catalog), write (issue/send/cancel documents, customers), and charge.
 - ✅ **Layered charge safety** — env opt-in, prepare→execute confirmation token, amount cap, redacted audit. Money never moves silently.
 - ✅ **Multi-account** via env; pick the account per call.
 - ✅ Built on the in-house `sumit-api` library (battle-tested payload builders + redaction).
