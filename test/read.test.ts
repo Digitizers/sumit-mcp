@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { z } from "zod";
 import { registerReadTools } from "../src/tools/read.js";
 
 const account = { name: "main", companyId: 123, apiKey: "key-main" };
@@ -129,5 +130,56 @@ describe("read tools", () => {
     const override = JSON.parse(fetchImpl.mock.calls[1][1].body);
     expect(override.DebitSource).toBe(3);
     expect(override.CreditSource).toBe(4);
+  });
+
+  it("sumit_get_customer_debt sends the fields SUMIT's request schema has", async () => {
+    const srv = fakeServer();
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ Data: { Debt: 6431 }, Status: 0, UserErrorMessage: null }),
+      text: async () => "",
+    })) as any;
+    registerReadTools(srv as any, {
+      accounts: new Map([["main", account]]),
+      env: { SUMIT_DEFAULT_ACCOUNT: "main" },
+      fetchImpl,
+    });
+    const { handler } = srv.tools.get("sumit_get_customer_debt")!;
+    const res = await handler({ customerId: "4711" });
+    expect(fetchImpl.mock.calls[0][0]).toContain("/accounting/documents/getdebt/");
+    const { Credentials, ...body } = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(Credentials).toEqual({ CompanyID: 123, APIKey: "key-main" });
+    expect(body).toEqual({ CustomerID: 4711, DebitSource: 1, CreditSource: 2 });
+    expect(res.content[0].text).toContain("6431");
+
+    await handler({ customerId: "4711", debitSource: 2, creditSource: 4, includeDraftDocuments: true });
+    const { Credentials: _c, ...override } = JSON.parse(fetchImpl.mock.calls[1][1].body);
+    expect(override).toEqual({ CustomerID: 4711, DebitSource: 2, CreditSource: 4, IncludeDraftDocuments: true });
+  });
+
+  it.each(["12a", "-5", "1.5", " ", "99999999999999999999", undefined])(
+    "sumit_get_customer_debt rejects the customerId %j before calling SUMIT",
+    async (customerId) => {
+      const srv = fakeServer();
+      const fetchImpl = vi.fn() as any;
+      registerReadTools(srv as any, {
+        accounts: new Map([["main", account]]),
+        env: { SUMIT_DEFAULT_ACCOUNT: "main" },
+        fetchImpl,
+      });
+      const { handler } = srv.tools.get("sumit_get_customer_debt")!;
+      await expect(handler({ customerId })).rejects.toThrow(/customerId/);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    },
+  );
+
+  it("sumit_get_customer_debt requires customerId and has no lookup by external identifier", () => {
+    const srv = fakeServer();
+    registerReadTools(srv as any, { accounts: new Map([["main", account]]), env: { SUMIT_DEFAULT_ACCOUNT: "main" } });
+    const { schema } = srv.tools.get("sumit_get_customer_debt")!;
+    expect(z.object(schema).safeParse({}).success).toBe(false);
+    expect(z.object(schema).safeParse({ customerId: "4711" }).success).toBe(true);
+    expect(schema).not.toHaveProperty("externalIdentifier");
   });
 });

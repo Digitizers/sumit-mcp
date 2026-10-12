@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
+import { z } from "zod";
 import { registerWriteTools } from "../src/tools/write.js";
 
 const account = { name: "main", companyId: 123, apiKey: "key-main" };
 function fakeServer() {
-  const tools = new Map<string, { handler: Function }>();
-  return { tools, registerTool(n: string, _d: any, h: Function) { tools.set(n, { handler: h }); } };
+  const tools = new Map<string, { schema: any; handler: Function }>();
+  return { tools, registerTool(n: string, d: any, h: Function) { tools.set(n, { schema: d.inputSchema, handler: h }); } };
 }
 function okFetch(data: unknown) {
   return vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ Data: data, Status: 0, UserErrorMessage: null }), text: async () => "" })) as any;
@@ -24,7 +25,7 @@ describe("write tools", () => {
     const fetchImpl = okFetch({ DocumentID: 99 });
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
     const { handler } = srv.tools.get("sumit_create_document")!;
-    const res = await handler({ documentType: 0, customerName: "Acme", items: [{ name: "Service", unitPrice: 100 }] });
+    const res = await handler({ documentType: 0, customerName: "Acme", vatIncluded: false, items: [{ name: "Service", unitPrice: 100 }] });
     const sent = JSON.parse(fetchImpl.mock.calls[0][1].body);
     expect(sent.Credentials).toEqual({ CompanyID: 123, APIKey: "key-main" });
     expect(sent.Details.Type).toBe(0);
@@ -38,8 +39,8 @@ describe("write tools", () => {
     const fetchImpl = okFetch({ DocumentID: 99 });
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
     const { handler } = srv.tools.get("sumit_create_document")!;
-    await handler({ documentType: 3, customerName: "Acme", isDraft: true, items: [{ name: "Service", unitPrice: 100 }] });
-    await handler({ documentType: 3, customerName: "Acme", items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 3, customerName: "Acme", vatIncluded: false, isDraft: true, items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 3, customerName: "Acme", vatIncluded: false, items: [{ name: "Service", unitPrice: 100 }] });
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).Details.IsDraft).toBe(true);
     expect("IsDraft" in JSON.parse(fetchImpl.mock.calls[1][1].body).Details).toBe(false);
   });
@@ -49,7 +50,7 @@ describe("write tools", () => {
     const fetchImpl = okFetch({ DocumentID: 99 });
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
     const { handler } = srv.tools.get("sumit_create_document")!;
-    await handler({ documentType: 3, customerName: "Acme", customerId: "4711", items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 3, customerName: "Acme", vatIncluded: false, customerId: "4711", items: [{ name: "Service", unitPrice: 100 }] });
     const customer = JSON.parse(fetchImpl.mock.calls[0][1].body).Details.Customer;
     expect(customer.ID).toBe(4711);
     expect(customer.SearchMode).toBe(1);
@@ -60,8 +61,8 @@ describe("write tools", () => {
     const fetchImpl = okFetch({ DocumentID: 99 });
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
     const { handler } = srv.tools.get("sumit_create_document")!;
-    await handler({ documentType: 0, customerName: "Acme", items: [{ name: "Service", unitPrice: 100 }] });
-    await handler({ documentType: 0, customerName: "Acme", customerExternalId: "crm-7", items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 0, customerName: "Acme", vatIncluded: false, items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 0, customerName: "Acme", vatIncluded: false, customerExternalId: "crm-7", items: [{ name: "Service", unitPrice: 100 }] });
     const first = JSON.parse(fetchImpl.mock.calls[0][1].body).Details.Customer;
     const second = JSON.parse(fetchImpl.mock.calls[1][1].body).Details.Customer;
     expect(first.SearchMode).toBe(0);
@@ -74,7 +75,31 @@ describe("write tools", () => {
     const fetchImpl = okFetch({ DocumentID: 99 });
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
     const { handler } = srv.tools.get("sumit_create_document")!;
-    await expect(handler({ documentType: 3, customerName: "Acme", customerId, items: [{ name: "Service", unitPrice: 100 }] })).rejects.toThrow(/customerId/);
+    await expect(handler({ documentType: 3, customerName: "Acme", vatIncluded: false, customerId, items: [{ name: "Service", unitPrice: 100 }] })).rejects.toThrow(/customerId/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("create_document sends VATIncluded exactly as the caller chose it", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await handler({ documentType: 3, customerName: "Acme", vatIncluded: false, items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 3, customerName: "Acme", vatIncluded: true, items: [{ name: "Service", unitPrice: 100 }] });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).VATIncluded).toBe(false);
+    expect(JSON.parse(fetchImpl.mock.calls[1][1].body).VATIncluded).toBe(true);
+  });
+
+  it("create_document refuses to guess when vatIncluded is omitted", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { schema, handler } = srv.tools.get("sumit_create_document")!;
+    const input = { documentType: 3, customerName: "Acme", items: [{ name: "Service", unitPrice: 100 }] };
+
+    expect(z.object(schema).safeParse(input).success).toBe(false);
+    expect(z.object(schema).safeParse({ ...input, vatIncluded: false }).success).toBe(true);
+    await expect(handler(input)).rejects.toThrow(/vatIncluded is required/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -83,7 +108,7 @@ describe("write tools", () => {
     const fetchImpl = okFetch({ DocumentID: 99 });
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
     const { handler } = srv.tools.get("sumit_create_document")!;
-    await expect(handler({ documentType: 3, customerName: "Acme", isDraft: true, sendByEmail: "a@example.com", items: [{ name: "Service", unitPrice: 100 }] })).rejects.toThrow(/draft/i);
+    await expect(handler({ documentType: 3, customerName: "Acme", vatIncluded: false, isDraft: true, sendByEmail: "a@example.com", items: [{ name: "Service", unitPrice: 100 }] })).rejects.toThrow(/draft/i);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -96,9 +121,9 @@ describe("write tools", () => {
     })) as any;
     registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl: errFetch });
     const handler = srv.tools.get("sumit_create_document")!.handler;
-    await expect(handler({ documentType: 0, customerName: "Acme", items: [{ name: "S", unitPrice: 100 }] })).rejects.toThrow();
+    await expect(handler({ documentType: 0, customerName: "Acme", vatIncluded: false, items: [{ name: "S", unitPrice: 100 }] })).rejects.toThrow();
     try {
-      await handler({ documentType: 0, customerName: "Acme", items: [{ name: "S", unitPrice: 100 }] });
+      await handler({ documentType: 0, customerName: "Acme", vatIncluded: false, items: [{ name: "S", unitPrice: 100 }] });
     } catch (e) {
       expect((e as Error).message).not.toContain("key-main");
     }

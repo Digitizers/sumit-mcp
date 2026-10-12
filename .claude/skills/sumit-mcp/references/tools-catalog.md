@@ -6,13 +6,13 @@ Legend: **R** read-only · **W** write (no money) · **$** money movement.
 - `sumit_list_documents` — list documents by date/type, one page per call (`startIndex`, `pageSize`). No customer filter exists.
 - `sumit_get_document` — one document's details (by ID or type+number).
 - `sumit_get_document_pdf` — document PDF (URL/base64).
-- `sumit_get_customer_debt` — outstanding debt for a customer.
+- `sumit_get_customer_debt` — outstanding debt for one customer, by its numeric SUMIT `customerId` (required; the endpoint has no lookup by external identifier). `debitSource` / `creditSource` choose which documents count as debt and which settle it; they default to 1 and 2, as in the debt report.
 - `sumit_get_debt_report` — debt across all customers.
 - `sumit_list_income_items` — catalog/income items.
 - `sumit_get_customer_url` — link to a customer's SUMIT page (no raw-export endpoint exists).
 
 ## Write (W)
-- `sumit_create_document` — issue a document (see types below). No card charge. `isDraft: true` saves a draft instead of issuing it. `customerId` bills an existing customer by its SUMIT ID.
+- `sumit_create_document` — issue a document (see types below). No card charge. `vatIncluded` is required: `false` when the unit prices are before VAT (SUMIT adds it), `true` when they already include it. `isDraft: true` saves a draft instead of issuing it. `customerId` bills an existing customer by its SUMIT ID. Every item name that is not in the catalog yet is added to it.
 - `sumit_send_document` — email an existing document.
 - `sumit_cancel_document` — cancel/credit a document.
 - `sumit_upsert_customer` — create/update a customer (by ExternalIdentifier).

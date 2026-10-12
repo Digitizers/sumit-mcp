@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { sumitPost } from "../client.js";
 import { resolveAccount, type SumitAccount } from "../accounts.js";
+import { parseCustomerId } from "./customer-id.js";
 
 export interface ToolDeps {
   accounts: Map<string, SumitAccount>;
@@ -14,6 +15,10 @@ function ok(data: unknown) {
 }
 
 const accountField = { account: z.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
+
+// SUMIT's DebtSettlementSource enum, from its published schema.
+const DEBT_SOURCE_VALUES =
+  "1=TaxInvoice, 2=ProformaInvoice, 3=PaymentRequest, 4=Receipt, 5=ProformaInvoice+PaymentRequest, 6=ProformaInvoice+PaymentRequest+TaxInvoice.";
 
 export function registerReadTools(server: McpServer, deps: ToolDeps): void {
   const call = (path: string, params: Record<string, unknown>, account?: string) =>
@@ -78,11 +83,48 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
     "sumit_get_customer_debt",
     {
       title: "Get customer debt",
-      description: "Get the outstanding debt for one SUMIT customer.",
-      inputSchema: { ...accountField, customerId: z.string().optional(), externalIdentifier: z.string().optional() },
+      description:
+        "Get the outstanding debt for one SUMIT customer, by its numeric SUMIT customer ID. " +
+        "The ID is on every row of sumit_list_documents. The endpoint has no lookup by external identifier.",
+      inputSchema: {
+        ...accountField,
+        customerId: z.string().describe("Numeric SUMIT customer ID."),
+        debitSource: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(`Which documents count as debt. ${DEBT_SOURCE_VALUES} Defaults to 1, as in sumit_get_debt_report.`),
+        creditSource: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(`Which documents settle the debt. ${DEBT_SOURCE_VALUES} Defaults to 2, as in sumit_get_debt_report.`),
+        includeDraftDocuments: z.boolean().optional().describe("Count draft documents too. SUMIT leaves them out by default."),
+      },
     },
-    async ({ account, customerId, externalIdentifier }) =>
-      ok(await call("/accounting/documents/getdebt/", { CustomerID: customerId, ExternalIdentifier: externalIdentifier }, account)),
+    // Same required pair as the debt report: without DebitSource the endpoint fails with
+    // "שדה חסר: DebitSource". SUMIT ignores unknown fields, so anything outside its request
+    // schema (an external identifier, for one) would be dropped without an error.
+    async ({ account, customerId, debitSource, creditSource, includeDraftDocuments }) => {
+      const id = parseCustomerId("sumit_get_customer_debt", customerId);
+      if (id === undefined) {
+        throw new Error("sumit_get_customer_debt: customerId is required.");
+      }
+      return ok(
+        await call(
+          "/accounting/documents/getdebt/",
+          {
+            CustomerID: id,
+            DebitSource: debitSource ?? 1,
+            CreditSource: creditSource ?? 2,
+            IncludeDraftDocuments: includeDraftDocuments,
+          },
+          account,
+        ),
+      );
+    },
   );
 
   server.registerTool(

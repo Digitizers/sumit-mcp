@@ -21946,11 +21946,22 @@ async function sumitPostRaw(url, body, opts = {}) {
 }
 var SUMIT_BASE_URL = BASE_URL;
 
+// src/tools/customer-id.ts
+function parseCustomerId(tool, raw) {
+  if (raw === void 0) return void 0;
+  const id = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error(`${tool}: customerId must be the numeric SUMIT customer ID.`);
+  }
+  return id;
+}
+
 // src/tools/read.ts
 function ok(data) {
   return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
 }
 var accountField = { account: external_exports.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
+var DEBT_SOURCE_VALUES = "1=TaxInvoice, 2=ProformaInvoice, 3=PaymentRequest, 4=Receipt, 5=ProformaInvoice+PaymentRequest, 6=ProformaInvoice+PaymentRequest+TaxInvoice.";
 function registerReadTools(server, deps) {
   const call = (path, params, account) => sumitPost(resolveAccount(deps.accounts, deps.env, account), path, params, { fetchImpl: deps.fetchImpl });
   server.registerTool(
@@ -21998,10 +22009,36 @@ function registerReadTools(server, deps) {
     "sumit_get_customer_debt",
     {
       title: "Get customer debt",
-      description: "Get the outstanding debt for one SUMIT customer.",
-      inputSchema: { ...accountField, customerId: external_exports.string().optional(), externalIdentifier: external_exports.string().optional() }
+      description: "Get the outstanding debt for one SUMIT customer, by its numeric SUMIT customer ID. The ID is on every row of sumit_list_documents. The endpoint has no lookup by external identifier.",
+      inputSchema: {
+        ...accountField,
+        customerId: external_exports.string().describe("Numeric SUMIT customer ID."),
+        debitSource: external_exports.number().int().positive().optional().describe(`Which documents count as debt. ${DEBT_SOURCE_VALUES} Defaults to 1, as in sumit_get_debt_report.`),
+        creditSource: external_exports.number().int().positive().optional().describe(`Which documents settle the debt. ${DEBT_SOURCE_VALUES} Defaults to 2, as in sumit_get_debt_report.`),
+        includeDraftDocuments: external_exports.boolean().optional().describe("Count draft documents too. SUMIT leaves them out by default.")
+      }
     },
-    async ({ account, customerId, externalIdentifier }) => ok(await call("/accounting/documents/getdebt/", { CustomerID: customerId, ExternalIdentifier: externalIdentifier }, account))
+    // Same required pair as the debt report: without DebitSource the endpoint fails with
+    // "שדה חסר: DebitSource". SUMIT ignores unknown fields, so anything outside its request
+    // schema (an external identifier, for one) would be dropped without an error.
+    async ({ account, customerId, debitSource, creditSource, includeDraftDocuments }) => {
+      const id = parseCustomerId("sumit_get_customer_debt", customerId);
+      if (id === void 0) {
+        throw new Error("sumit_get_customer_debt: customerId is required.");
+      }
+      return ok(
+        await call(
+          "/accounting/documents/getdebt/",
+          {
+            CustomerID: id,
+            DebitSource: debitSource ?? 1,
+            CreditSource: creditSource ?? 2,
+            IncludeDraftDocuments: includeDraftDocuments
+          },
+          account
+        )
+      );
+    }
   );
   server.registerTool(
     "sumit_get_debt_report",
@@ -22048,14 +22085,6 @@ function ok2(data) {
   return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
 }
 var accountField2 = { account: external_exports.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
-function parseCustomerId(raw) {
-  if (raw === void 0) return void 0;
-  const id = /^\d+$/.test(raw) ? Number(raw) : NaN;
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    throw new Error("sumit_create_document: customerId must be the numeric SUMIT customer ID.");
-  }
-  return id;
-}
 function registerWriteTools(server, deps) {
   const acct = (name) => resolveAccount(deps.accounts, deps.env, name);
   const call = (path, params, name) => sumitPost(acct(name), path, params, { fetchImpl: deps.fetchImpl });
@@ -22063,7 +22092,7 @@ function registerWriteTools(server, deps) {
     "sumit_create_document",
     {
       title: "Create document",
-      description: "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/\u05D7\u05E9\u05D1\u05D5\u05DF \u05E2\u05E1\u05E7\u05D4, 12=Quote) for a customer. Does NOT charge a card.",
+      description: "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/\u05D7\u05E9\u05D1\u05D5\u05DF \u05E2\u05E1\u05E7\u05D4, 12=Quote) for a customer. Does NOT charge a card. vatIncluded is required: it decides whether the unit prices are the totals or VAT is added to them. Every item name that is not already in the SUMIT catalog is added to it as a new income item; for a recurring service reuse the existing name from sumit_list_income_items.",
       inputSchema: {
         ...accountField2,
         documentType: external_exports.number().describe("SUMIT document type code."),
@@ -22079,7 +22108,7 @@ function registerWriteTools(server, deps) {
           quantity: external_exports.number().optional()
         })).min(1),
         currency: external_exports.enum(["ILS", "USD", "EUR"]).optional(),
-        vatIncluded: external_exports.boolean().optional(),
+        vatIncluded: external_exports.boolean().describe("Required. true: the unit prices already include VAT, and the document total is their sum. false: the unit prices are before VAT, and SUMIT adds VAT on top."),
         language: external_exports.string().optional(),
         sendByEmail: external_exports.string().optional().describe("Recipient email to deliver the document to on creation."),
         isDraft: external_exports.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail.")
@@ -22090,7 +22119,10 @@ function registerWriteTools(server, deps) {
       if (a.isDraft && a.sendByEmail) {
         throw new Error("sumit_create_document: a draft cannot be emailed. Drop sendByEmail, or issue the document without isDraft.");
       }
-      const customerId = parseCustomerId(a.customerId);
+      if (typeof a.vatIncluded !== "boolean") {
+        throw new Error("sumit_create_document: vatIncluded is required. Pass true when the unit prices already include VAT, false when SUMIT should add VAT on top.");
+      }
+      const customerId = parseCustomerId("sumit_create_document", a.customerId);
       const payload = buildCreateDocumentPayload({
         companyId: account.companyId,
         apiKey: account.apiKey,
