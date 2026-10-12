@@ -26,5 +26,9 @@
 2. Get explicit approval. Have the user complete a SUMIT checkout to produce a one-time `single_use_token`.
 3. `sumit_execute_charge` with the `confirmationToken` + `singleUseToken`. The normalized event reports `recurring.charged` on success.
 
+## What a customer owes
+- `sumit_get_customer_debt` computes debit documents minus credit documents, and the caller names both kinds. Ask how the business bills before choosing. Going by the names in SUMIT's enum, tax invoice then receipt would be `debitSource: 1`, `creditSource: 4`, and proforma (חשבון עסקה) then receipt `debitSource: 2`, `creditSource: 4`; neither reading has been confirmed against a customer whose balance is known.
+- A pair that does not match the bookkeeping still returns a number: invoices that were paid show as owed, or the balance comes out negative. Treat a surprising result as a wrong pair first, and check it against the customer's documents (`sumit_list_documents`) before telling anyone what they owe.
+
 ## Reconcile debts
 - `sumit_get_debt_report` → for each debtor, `sumit_get_document` to inspect the open invoice, then `sumit_send_document` as a reminder.

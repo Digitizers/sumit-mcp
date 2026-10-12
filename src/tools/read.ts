@@ -85,40 +85,39 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
       title: "Get customer debt",
       description:
         "Get the outstanding debt for one SUMIT customer, by its numeric SUMIT customer ID. " +
-        "The ID is on every row of sumit_list_documents. The endpoint has no lookup by external identifier.",
+        "The ID is on every row of sumit_list_documents. The endpoint has no lookup by external identifier. " +
+        "debitSource and creditSource are required and decide the result: the debt is the documents of the debit kind " +
+        "minus the documents of the credit kind. Pick the pair that matches how this business bills and records payment.",
       inputSchema: {
         ...accountField,
         customerId: z.string().describe("Numeric SUMIT customer ID."),
-        debitSource: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe(`Which documents count as debt. ${DEBT_SOURCE_VALUES} Defaults to 1, as in sumit_get_debt_report.`),
-        creditSource: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe(`Which documents settle the debt. ${DEBT_SOURCE_VALUES} Defaults to 2, as in sumit_get_debt_report.`),
+        debitSource: z.number().int().positive().describe(`Required. Which documents count as debt. ${DEBT_SOURCE_VALUES}`),
+        creditSource: z.number().int().positive().describe(`Required. Which documents settle the debt. ${DEBT_SOURCE_VALUES}`),
         includeDraftDocuments: z.boolean().optional().describe("Count draft documents too. SUMIT leaves them out by default."),
       },
     },
-    // Same required pair as the debt report: without DebitSource the endpoint fails with
-    // "שדה חסר: DebitSource". SUMIT ignores unknown fields, so anything outside its request
-    // schema (an external identifier, for one) would be dropped without an error.
+    // Without DebitSource the endpoint fails with "שדה חסר: DebitSource". The pair has no
+    // default here: a wrong one returns a plausible number (a paid invoice still shown as
+    // owed, or a negative balance), so the caller has to choose it. SUMIT ignores unknown
+    // fields, so anything outside its request schema (an external identifier, for one)
+    // would be dropped without an error.
     async ({ account, customerId, debitSource, creditSource, includeDraftDocuments }) => {
       const id = parseCustomerId("sumit_get_customer_debt", customerId);
       if (id === undefined) {
         throw new Error("sumit_get_customer_debt: customerId is required.");
+      }
+      for (const [name, value] of [["debitSource", debitSource], ["creditSource", creditSource]] as const) {
+        if (!Number.isInteger(value) || (value as number) <= 0) {
+          throw new Error(`sumit_get_customer_debt: ${name} is required. ${DEBT_SOURCE_VALUES}`);
+        }
       }
       return ok(
         await call(
           "/accounting/documents/getdebt/",
           {
             CustomerID: id,
-            DebitSource: debitSource ?? 1,
-            CreditSource: creditSource ?? 2,
+            DebitSource: debitSource,
+            CreditSource: creditSource,
             IncludeDraftDocuments: includeDraftDocuments,
           },
           account,

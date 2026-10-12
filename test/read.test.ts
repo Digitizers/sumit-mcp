@@ -146,11 +146,11 @@ describe("read tools", () => {
       fetchImpl,
     });
     const { handler } = srv.tools.get("sumit_get_customer_debt")!;
-    const res = await handler({ customerId: "4711" });
+    const res = await handler({ customerId: "4711", debitSource: 1, creditSource: 4 });
     expect(fetchImpl.mock.calls[0][0]).toContain("/accounting/documents/getdebt/");
     const { Credentials, ...body } = JSON.parse(fetchImpl.mock.calls[0][1].body);
     expect(Credentials).toEqual({ CompanyID: 123, APIKey: "key-main" });
-    expect(body).toEqual({ CustomerID: 4711, DebitSource: 1, CreditSource: 2 });
+    expect(body).toEqual({ CustomerID: 4711, DebitSource: 1, CreditSource: 4 });
     expect(res.content[0].text).toContain("6431");
 
     await handler({ customerId: "4711", debitSource: 2, creditSource: 4, includeDraftDocuments: true });
@@ -169,17 +169,28 @@ describe("read tools", () => {
         fetchImpl,
       });
       const { handler } = srv.tools.get("sumit_get_customer_debt")!;
-      await expect(handler({ customerId })).rejects.toThrow(/customerId/);
+      await expect(handler({ customerId, debitSource: 1, creditSource: 4 })).rejects.toThrow(/customerId/);
       expect(fetchImpl).not.toHaveBeenCalled();
     },
   );
 
-  it("sumit_get_customer_debt requires customerId and has no lookup by external identifier", () => {
+  it("sumit_get_customer_debt requires customerId and both sources, and has no lookup by external identifier", async () => {
     const srv = fakeServer();
-    registerReadTools(srv as any, { accounts: new Map([["main", account]]), env: { SUMIT_DEFAULT_ACCOUNT: "main" } });
-    const { schema } = srv.tools.get("sumit_get_customer_debt")!;
-    expect(z.object(schema).safeParse({}).success).toBe(false);
-    expect(z.object(schema).safeParse({ customerId: "4711" }).success).toBe(true);
+    const fetchImpl = vi.fn() as any;
+    registerReadTools(srv as any, { accounts: new Map([["main", account]]), env: { SUMIT_DEFAULT_ACCOUNT: "main" }, fetchImpl });
+    const { schema, handler } = srv.tools.get("sumit_get_customer_debt")!;
+    const parse = (input: unknown) => z.object(schema).safeParse(input).success;
+    expect(parse({})).toBe(false);
+    expect(parse({ customerId: "4711" })).toBe(false);
+    expect(parse({ customerId: "4711", debitSource: 1 })).toBe(false);
+    expect(parse({ customerId: "4711", creditSource: 4 })).toBe(false);
+    expect(parse({ customerId: "4711", debitSource: 1, creditSource: 4 })).toBe(true);
     expect(schema).not.toHaveProperty("externalIdentifier");
+
+    // No default pair: a wrong one returns a plausible but wrong balance.
+    await expect(handler({ customerId: "4711" })).rejects.toThrow(/debitSource is required/);
+    await expect(handler({ customerId: "4711", debitSource: 1 })).rejects.toThrow(/creditSource is required/);
+    await expect(handler({ customerId: "4711", debitSource: 0, creditSource: 4 })).rejects.toThrow(/debitSource is required/);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
