@@ -4,7 +4,7 @@
 1. `sumit_create_document` with `documentType: 12` (quote) for the customer + line items.
 2. On acceptance, `sumit_create_document` with `documentType: 0` (invoice) — reuse the same `customerExternalId` so SUMIT matches the customer.
 3. `sumit_send_document` to email it.
-4. Later, `sumit_get_customer_debt` (one customer) or `sumit_get_debt_report` (all) to see who still owes.
+4. Later, to see who still owes: the open documents, as described under "What a customer owes" below.
 
 ## Bill a customer that already exists in SUMIT
 1. Find the customer's `CustomerID`: it is on every row of `sumit_list_documents`, and on `sumit_get_document`.
@@ -27,9 +27,18 @@
 3. `sumit_execute_charge` with the `confirmationToken` + `singleUseToken`. The normalized event reports `recurring.charged` on success.
 
 ## What a customer owes
-- `sumit_get_customer_debt` computes debit documents minus credit documents, and the caller names both kinds. Ask how the business bills before choosing. Going by the names in SUMIT's enum, tax invoice then receipt would be `debitSource: 1`, `creditSource: 4`, and proforma (חשבון עסקה) then receipt `debitSource: 2`, `creditSource: 4`; neither reading has been confirmed against a customer whose balance is known.
-- A pair that does not match the bookkeeping still returns a number: invoices that were paid show as owed, or the balance comes out negative. Treat a surprising result as a wrong pair first, and check it against the customer's documents (`sumit_list_documents`) before telling anyone what they owe.
-- `sumit_get_debt_report` takes the same two sources and needs the same care. It returns customer IDs without names.
+Start from the documents, not from the debt tools.
+
+- **A business that bills by proforma (חשבון עסקה):** what a customer owes is the sum of their open proformas. Call `sumit_list_documents` with `documentType: 3` and a `fromDate` far enough back, then keep the rows with `IsClosed: false` and `IsDraft: false` for that `CustomerID`. The endpoint has no filter for either, so filter the result. `DocumentValue` includes VAT.
+- A deal paid in parts shows up as it should: the part that was paid is a closed proforma, the part still owed is an open one.
+- The same call without the customer filter answers "who owes money": every open proforma, with the customer name on the row.
+- Checked against a live account on 2026-10-13: a customer with one open proforma had exactly that amount owed, and the open proformas across the account matched what the owner knew was unpaid.
+
+The debt tools did not give that answer on the same account:
+
+- `sumit_get_customer_debt` computes debit documents minus credit documents, and the caller names both kinds. For the customer above it returned, for six pairs: roughly the total of every proforma ever issued to them, paid ones included (`2`/`4`, `5`/`4`, `2`/`1`); zero (`1`/`4`); and two negative numbers (`6`/`4`, `1`/`2`). None was the amount owed. On that account the payments that close a proforma are not counted as `Receipt`.
+- `sumit_get_debt_report` takes the same two sources. With `2`/`4` it showed customers who still owed half of a deal with a negative balance.
+- So do not tell anyone what they owe from a debt tool alone. If you use one, check the number against the customer's open documents first. On an account that bills by tax invoice and records payment by plain receipt, `1`/`4` is the pair to try; that has not been checked against a live account.
 
 ## Reconcile debts
-- `sumit_get_debt_report` → for each debtor, `sumit_get_document` to inspect the open invoice, then `sumit_send_document` as a reminder.
+- `sumit_list_documents` with `documentType: 3`, keep `IsClosed: false` → for each open proforma, `sumit_get_document` to inspect it, then `sumit_send_document` as a reminder. Sending needs the user's approval each time.

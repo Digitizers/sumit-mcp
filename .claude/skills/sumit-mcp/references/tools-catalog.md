@@ -3,7 +3,7 @@
 Legend: **R** read-only · **W** write (no money) · **$** money movement.
 
 ## Read (R)
-- `sumit_list_documents` — list documents by date/type, one page per call (`startIndex`, `pageSize`). No customer filter exists.
+- `sumit_list_documents` — list documents by date/type, one page per call (`startIndex`, `pageSize`). No customer filter exists. Each row carries `IsClosed` and `IsDraft`; open proformas (`documentType: 3`, `IsClosed: false`) are the reliable answer to what a customer owes.
 - `sumit_get_document` — one document's details (by ID or type+number).
 - `sumit_get_document_pdf` — document PDF (URL/base64).
 - `sumit_get_customer_debt` — outstanding debt for one customer, by its numeric SUMIT `customerId` (required; the endpoint has no lookup by external identifier). `debitSource` and `creditSource` are required too: which documents count as debt and which settle it (1 tax invoice, 2 proforma, 3 payment request, 4 receipt, 5 proforma + payment request, 6 proforma + payment request + tax invoice). There is no default, because a wrong pair returns a number that looks right.
