@@ -12,6 +12,8 @@
 - **Breaking for callers:** `sumit_create_document` requires `vatIncluded`. It was optional, and an omitted flag was sent to SUMIT as `VATIncluded: true` (the default of `sumit-api` 0.4, the opposite of SUMIT's own). Prices given before VAT then produced a document whose total left the VAT out, with no error. The tool now refuses a call without the flag, in the input schema and again in the handler. ([#15](https://github.com/Digitizers/sumit-mcp/issues/15))
 - **Breaking for callers:** `sumit_get_customer_debt` requires `customerId`, `debitSource` and `creditSource`, and no longer accepts `externalIdentifier`. SUMIT's request has no such field and ignores unknown ones, so a lookup by external identifier could never have worked. The two sources have no default: the debt is one kind of document minus another, and a pair that does not match how the business bills returns a plausible but wrong balance. ([#14](https://github.com/Digitizers/sumit-mcp/issues/14))
 
+- **Breaking for callers:** `sumit_get_debt_report` requires `debitSource` and `creditSource` (1 to 6). It defaulted to 1 and 2, which is tax invoices minus proformas, not minus receipts, so paid invoices were reported as owed and nothing failed. No pair fits every account. ([#17](https://github.com/Digitizers/sumit-mcp/issues/17))
+
 ### Fixed
 
 - `sumit_get_customer_debt` failed on every call with `שדה חסר: DebitSource`. It now sends `DebitSource` / `CreditSource` as the caller chose them, sends `CustomerID` as a number and rejects a non-numeric one before the request, and takes `includeDraftDocuments`. ([#14](https://github.com/Digitizers/sumit-mcp/issues/14))
