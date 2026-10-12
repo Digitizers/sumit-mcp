@@ -19,7 +19,7 @@ Legend: **R** read-only · **W** write (no money) · **$** money movement.
 - `sumit_create_income_item` — create a catalog item.
 
 ## Charge ($)
-- `sumit_prepare_charge` — preview + mint confirmation token. No money moves.
+- `sumit_prepare_charge` — preview + mint confirmation token. No money moves. Prices are VAT-inclusive: `unitPrice` is the amount charged, and SUMIT adds nothing on top.
 - `sumit_execute_charge` — perform the charge. Needs `SUMIT_ALLOW_CHARGE=1`, the confirmation token, and a browser `single_use_token`. Bound to the prepared amount/customer; capped by `SUMIT_MAX_CHARGE`.
 
 ## SUMIT document types

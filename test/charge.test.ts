@@ -51,6 +51,21 @@ describe("charge tools", () => {
     expect(res.content[0].text).toContain("payment.succeeded");
   });
 
+  it("charges are always VAT-inclusive, so the charged amount is the amount that was approved", async () => {
+    for (const mode of ["one_off", "recurring"] as const) {
+      const srv = fakeServer();
+      const fetchImpl = okFetch();
+      registerChargeTools(srv as any, deps(baseEnv, fetchImpl));
+      const input = { ...prepInput, mode };
+      const prep = await srv.tools.get("sumit_prepare_charge")!.handler(input);
+      const token = JSON.parse(prep.content[0].text).confirmationToken;
+      await srv.tools.get("sumit_execute_charge")!.handler({ ...input, confirmationToken: token, singleUseToken: "browser-tok" });
+      const sent = JSON.parse(fetchImpl.mock.calls[0][1].body);
+      expect(sent.VATIncluded, mode).toBe(true);
+      expect(sent.Items[0].UnitPrice, mode).toBe(1000);
+    }
+  });
+
   it("execute rejects a tampered/incorrect token", async () => {
     const srv = fakeServer();
     registerChargeTools(srv as any, deps(baseEnv, okFetch()));

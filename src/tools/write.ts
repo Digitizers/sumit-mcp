@@ -51,8 +51,7 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         throw new Error("sumit_create_document: a draft cannot be emailed. Drop sendByEmail, or issue the document without isDraft.");
       }
       // The schema already requires the flag. This covers a caller that reaches the handler
-      // without it: sumit-api would send VATIncluded true, and the document would come out
-      // without the VAT the caller meant to add.
+      // without validation, and names the tool in the error instead of the library's builder.
       if (typeof a.vatIncluded !== "boolean") {
         throw new Error("sumit_create_document: vatIncluded is required. Pass true when the unit prices already include VAT, false when SUMIT should add VAT on top.");
       }
@@ -61,7 +60,9 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         companyId: account.companyId,
         apiKey: account.apiKey,
         documentType: a.documentType,
-        customer: { name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId, searchMode: customerId !== undefined ? 1 : a.customerExternalId ? 2 : 0 },
+        // sumit-api derives the search mode: None with an id (SUMIT takes the customer from it),
+        // ExternalIdentifier with one, Automatic otherwise.
+        customer: { id: customerId, name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId },
         items: a.items,
         currency: a.currency,
         vatIncluded: a.vatIncluded,
@@ -69,11 +70,7 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : undefined,
         isDraft: a.isDraft || undefined,
       });
-      // SUMIT's schema types Customer.ID as int64, and sumit-api only carries it as a string.
-      const body = customerId === undefined
-        ? payload
-        : { ...payload, Details: { ...payload.Details, Customer: { ...payload.Details.Customer, ID: customerId } } };
-      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, body, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
+      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));
     },
   );

@@ -21474,7 +21474,7 @@ function resolveAccount(accounts, env, requested) {
   throw new Error("multiple accounts configured \u2014 set SUMIT_DEFAULT_ACCOUNT or pass account");
 }
 
-// node_modules/.pnpm/sumit-api@0.4.1/node_modules/sumit-api/dist/index.js
+// node_modules/.pnpm/sumit-api@0.5.0/node_modules/sumit-api/dist/index.js
 var LANGUAGE_STRING_TO_CODE = {
   he: 0,
   en: 1,
@@ -21484,6 +21484,15 @@ var LANGUAGE_STRING_TO_CODE = {
   english: 1,
   arabic: 2,
   spanish: 3
+};
+var SUMIT_CUSTOMER_SEARCH_MODE = {
+  Automatic: 0,
+  None: 1,
+  ExternalIdentifier: 2,
+  Name: 3,
+  CompanyNumber: 4,
+  Phone: 5,
+  EmailAddress: 6
 };
 function currencyToSumitCode(currency) {
   if (currency === 0 || currency === "ILS")
@@ -21511,7 +21520,7 @@ function currencyFromSumitCode(currency) {
 }
 function buildOneOffChargePayload(params) {
   return {
-    ...baseChargeEnvelope(params),
+    ...baseChargeEnvelope("buildOneOffChargePayload", params),
     Items: [
       {
         Item: {
@@ -21527,7 +21536,7 @@ function buildOneOffChargePayload(params) {
 }
 function buildRecurringChargePayload(params) {
   return {
-    ...baseChargeEnvelope(params),
+    ...baseChargeEnvelope("buildRecurringChargePayload", params),
     Items: [
       {
         Item: {
@@ -21549,9 +21558,10 @@ function buildCreateDocumentPayload(params) {
   if (!params.items.length) {
     throw new Error("buildCreateDocumentPayload: items[] must not be empty");
   }
-  const customerId = blankToUndefined(params.customer.id);
+  const vatIncluded = requireVatIncluded("buildCreateDocumentPayload", params.vatIncluded);
+  const customerId = toCustomerId(params.customer.id);
   const customerExternalIdentifier = blankToUndefined(params.customer.externalIdentifier);
-  const derivedSearchMode = params.customer.searchMode ?? (customerId ? 1 : customerExternalIdentifier ? 2 : 0);
+  const derivedSearchMode = params.customer.searchMode ?? (customerId !== void 0 ? SUMIT_CUSTOMER_SEARCH_MODE.None : customerExternalIdentifier ? SUMIT_CUSTOMER_SEARCH_MODE.ExternalIdentifier : SUMIT_CUSTOMER_SEARCH_MODE.Automatic);
   const customer = compact({
     SearchMode: derivedSearchMode,
     Name: blankToUndefined(params.customer.name) ?? params.customer.name,
@@ -21603,11 +21613,28 @@ function buildCreateDocumentPayload(params) {
     Credentials: { CompanyID: params.companyId, APIKey: params.apiKey },
     Details: details,
     Items: items,
-    VATIncluded: params.vatIncluded ?? true,
+    VATIncluded: vatIncluded,
     VATPerItem: params.vatPerItem,
     VATRate: params.vatRate,
     ResponseLanguage: toLanguageCode(params.responseLanguage)
   });
+}
+function toCustomerId(value) {
+  if (value === void 0)
+    return void 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "")
+      return void 0;
+    if (!/^\d+$/.test(trimmed)) {
+      throw new Error("buildCreateDocumentPayload: customer.id must be the numeric SUMIT customer ID");
+    }
+    value = Number(trimmed);
+  }
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error("buildCreateDocumentPayload: customer.id must be the numeric SUMIT customer ID");
+  }
+  return value;
 }
 function toLanguageCode(value) {
   if (typeof value === "number")
@@ -21660,7 +21687,14 @@ function normalizeCreateDocumentResponse(response) {
 function round2(value) {
   return Math.round(value * 100) / 100;
 }
-function baseChargeEnvelope(params) {
+function requireVatIncluded(builder, value) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${builder}: vatIncluded is required. Pass true when the prices already include VAT, false when SUMIT should add VAT on top.`);
+  }
+  return value;
+}
+function baseChargeEnvelope(builder, params) {
+  const vatIncluded = requireVatIncluded(builder, params.vatIncluded);
   return {
     Credentials: {
       CompanyID: params.companyId,
@@ -21673,7 +21707,7 @@ function baseChargeEnvelope(params) {
       EmailAddress: params.customer.emailAddress
     },
     SingleUseToken: params.singleUseToken,
-    VATIncluded: params.vatIncluded ?? true,
+    VATIncluded: vatIncluded,
     OnlyDocument: params.onlyDocument ?? false,
     ...params.authoriseOnly ? { AuthoriseOnly: true } : {}
   };
@@ -22139,7 +22173,9 @@ function registerWriteTools(server, deps) {
         companyId: account.companyId,
         apiKey: account.apiKey,
         documentType: a.documentType,
-        customer: { name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId, searchMode: customerId !== void 0 ? 1 : a.customerExternalId ? 2 : 0 },
+        // sumit-api derives the search mode: None with an id (SUMIT takes the customer from it),
+        // ExternalIdentifier with one, Automatic otherwise.
+        customer: { id: customerId, name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId },
         items: a.items,
         currency: a.currency,
         vatIncluded: a.vatIncluded,
@@ -22147,8 +22183,7 @@ function registerWriteTools(server, deps) {
         sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : void 0,
         isDraft: a.isDraft || void 0
       });
-      const body = customerId === void 0 ? payload : { ...payload, Details: { ...payload.Details, Customer: { ...payload.Details.Customer, ID: customerId } } };
-      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, body, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
+      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok2(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));
     }
   );
@@ -22282,7 +22317,7 @@ function ok3(data) {
 var itemShape = external_exports.object({
   name: external_exports.string(),
   description: external_exports.string(),
-  unitPrice: external_exports.number().finite().positive(),
+  unitPrice: external_exports.number().finite().positive().describe("The price charged per unit, VAT included. SUMIT does not add VAT on top of it."),
   quantity: external_exports.number().int().positive().optional(),
   durationMonths: external_exports.number().optional().describe("Recurring only: charge period in months."),
   recurrence: external_exports.number().optional()
@@ -22299,7 +22334,7 @@ function registerChargeTools(server, deps) {
     "sumit_prepare_charge",
     {
       title: "Prepare a charge (no money moves yet)",
-      description: "Validate and preview a one-off or recurring charge. Returns a human-readable summary and a confirmation_token. SHOW the summary to the user and get explicit approval, then call sumit_execute_charge with the token. This does NOT charge anything.",
+      description: "Validate and preview a one-off or recurring charge. Prices are VAT-inclusive: the amount shown is the amount charged. Returns a human-readable summary and a confirmation_token. SHOW the summary to the user and get explicit approval, then call sumit_execute_charge with the token. This does NOT charge anything.",
       inputSchema: {
         account: external_exports.string().optional(),
         mode: external_exports.enum(["one_off", "recurring"]),
@@ -22358,6 +22393,7 @@ function registerChargeTools(server, deps) {
         companyId: account.companyId,
         apiKey: account.apiKey,
         singleUseToken: a.singleUseToken,
+        vatIncluded: true,
         customer: { externalIdentifier: a.customerExternalId, name: a.customerName, emailAddress: a.customerEmail }
       };
       const path = a.mode === "recurring" ? "/billing/recurring/charge/" : "/billing/payments/charge/";
