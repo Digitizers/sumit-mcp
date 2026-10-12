@@ -22120,7 +22120,7 @@ function registerReadTools(server, deps) {
     "sumit_list_customer_recurring",
     {
       title: "List a customer's standing orders",
-      description: `List the standing orders (recurring items) of one SUMIT customer: what they are charged for, how much, how often, and the previous and next charge dates. Read-only. SUMIT has no account-wide list: call once per customer, and pace the calls. Each item has a Status: ${RECURRING_STATUS_VALUES} Status 3 and 14 mean a charge failed. Inactive items are left out unless includeInactive is set.`,
+      description: `List the standing orders (recurring items) of one SUMIT customer: what they are charged for, how much, and the previous and next charge dates. Read-only. SUMIT has no account-wide list: call once per customer, and pace the calls. There is no billing-interval field: read the interval from the gap between Date_PreviousBilling and Date_NextBilling. UnitPrice was before VAT on the one live account checked, while DocumentValue on a document includes VAT: confirm against a document of a past cycle before comparing the two. Each item has a Status: ${RECURRING_STATUS_VALUES} Status 3 and 14 mean a charge failed. Inactive items are left out unless includeInactive is set; a cancelled item keeps its Date_NextBilling, which is not a charge that is due.`,
       inputSchema: {
         ...accountField,
         customerId: external_exports.string().describe("Numeric SUMIT customer ID. It is on every row of sumit_list_documents."),
