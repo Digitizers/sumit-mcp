@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- `sumit_create_document` takes `isDraft`, which saves the document as a draft in SUMIT instead of issuing it. A draft cannot be combined with `sendByEmail`; the tool refuses before calling SUMIT.
+- `sumit_create_document` takes `customerId`, the numeric SUMIT ID of an existing customer. Until now the tool could address a customer only by `customerExternalId` or by name, so billing a customer that was created in SUMIT's own interface (no external identifier) left the match to SUMIT's automatic search. The ID is sent as a number, as SUMIT's schema types it, with `SearchMode` None.
+
 ### Fixed
 
 - `src/client.ts`: the live SUMIT API returns a **numeric** `Status` (`0` success, `1` user error, `2` bad request), not the string `"Success"`. Both `sumitPost` and `sumitPostRaw` treated every successful call as a failure and threw the generic `"SUMIT request failed"`, discarding the data. A numeric `Status` with no `UserErrorMessage` also crashed the redactor with a `TypeError`. The string form is still accepted for forward-compatibility. ([#4](https://github.com/Digitizers/sumit-mcp/issues/4))

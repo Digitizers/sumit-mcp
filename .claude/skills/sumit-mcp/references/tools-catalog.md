@@ -12,7 +12,7 @@ Legend: **R** read-only · **W** write (no money) · **$** money movement.
 - `sumit_get_customer_url` — link to a customer's SUMIT page (no raw-export endpoint exists).
 
 ## Write (W)
-- `sumit_create_document` — issue a document (see types below). No card charge.
+- `sumit_create_document` — issue a document (see types below). No card charge. `isDraft: true` saves a draft instead of issuing it. `customerId` bills an existing customer by its SUMIT ID.
 - `sumit_send_document` — email an existing document.
 - `sumit_cancel_document` — cancel/credit a document.
 - `sumit_upsert_customer` — create/update a customer (by ExternalIdentifier).
