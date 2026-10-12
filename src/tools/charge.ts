@@ -16,7 +16,7 @@ function ok(data: unknown) {
 const itemShape = z.object({
   name: z.string(),
   description: z.string(),
-  unitPrice: z.number().finite().positive(),
+  unitPrice: z.number().finite().positive().describe("The price charged per unit, VAT included. SUMIT does not add VAT on top of it."),
   quantity: z.number().int().positive().optional(),
   durationMonths: z.number().optional().describe("Recurring only: charge period in months."),
   recurrence: z.number().optional(),
@@ -36,7 +36,7 @@ export function registerChargeTools(server: McpServer, deps: ToolDeps): void {
     "sumit_prepare_charge",
     {
       title: "Prepare a charge (no money moves yet)",
-      description: "Validate and preview a one-off or recurring charge. Returns a human-readable summary and a confirmation_token. SHOW the summary to the user and get explicit approval, then call sumit_execute_charge with the token. This does NOT charge anything.",
+      description: "Validate and preview a one-off or recurring charge. Prices are VAT-inclusive: the amount shown is the amount charged. Returns a human-readable summary and a confirmation_token. SHOW the summary to the user and get explicit approval, then call sumit_execute_charge with the token. This does NOT charge anything.",
       inputSchema: {
         account: z.string().optional(),
         mode: z.enum(["one_off", "recurring"]),
@@ -90,8 +90,10 @@ export function registerChargeTools(server: McpServer, deps: ToolDeps): void {
       verifyConfirmation(a.confirmationToken, binding, secret); // throws on drift/expiry/reuse
       assertUnderCap(amount, deps.env);
 
+      // Always VAT-inclusive: the amount the user approved, the confirmation token and the cap
+      // are all computed from unitPrice, so SUMIT must not add VAT on top of it.
       const common = {
-        companyId: account.companyId, apiKey: account.apiKey, singleUseToken: a.singleUseToken,
+        companyId: account.companyId, apiKey: account.apiKey, singleUseToken: a.singleUseToken, vatIncluded: true,
         customer: { externalIdentifier: a.customerExternalId, name: a.customerName, emailAddress: a.customerEmail },
       };
       const path = a.mode === "recurring" ? "/billing/recurring/charge/" : "/billing/payments/charge/";

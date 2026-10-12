@@ -14,6 +14,9 @@
 
 - **Breaking for callers:** `sumit_get_debt_report` requires `debitSource` and `creditSource` (1 to 6). It defaulted to 1 and 2, which is tax invoices minus proformas, not minus receipts, so paid invoices were reported as owed and nothing failed. No pair fits every account. ([#17](https://github.com/Digitizers/sumit-mcp/issues/17))
 
+- `sumit-api` 0.4.1 → 0.5.0. That release sends `Customer.ID` as a number by itself, so the workaround in `sumit_create_document` that rewrote the ID after the payload was built is gone. The request sent to SUMIT is unchanged.
+- The charge tools state that prices are VAT-inclusive, and pass that to `sumit-api` explicitly (0.5.0 requires the flag). This is what they always did, through the library's old default. It is fixed, not an input: the approved amount, the confirmation token and the cap are all computed from `unitPrice`, so SUMIT must not add VAT on top of it.
+
 ### Fixed
 
 - `sumit_get_customer_debt` failed on every call with `שדה חסר: DebitSource`. It now sends `DebitSource` / `CreditSource` as the caller chose them, sends `CustomerID` as a number and rejects a non-numeric one before the request, and takes `includeDraftDocuments`. ([#14](https://github.com/Digitizers/sumit-mcp/issues/14))
