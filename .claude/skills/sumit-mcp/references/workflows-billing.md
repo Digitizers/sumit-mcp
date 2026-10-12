@@ -32,6 +32,7 @@ Start from the documents, not from the debt tools.
 - **A business that bills by proforma (חשבון עסקה):** what a customer owes is the sum of their open proformas. Call `sumit_list_documents` with `documentType: 3` and a `fromDate` far enough back, then keep the rows with `IsClosed: false` and `IsDraft: false` for that `CustomerID`. The endpoint has no filter for either, so filter the result. `DocumentValue` includes VAT.
 - A deal paid in parts shows up as it should: the part that was paid is a closed proforma, the part still owed is an open one.
 - The same call without the customer filter answers "who owes money": every open proforma, with the customer name on the row.
+- Open proformas are one of two lists. The other is the customer's standing orders, the recurring items they are charged for. A customer on a standing order has no open proforma for it, so the open documents do not show what they pay or when the order ends. No tool reads standing orders yet (SUMIT's endpoint is per customer; see issue #22): say so, and send the user to the standing-orders list in SUMIT, instead of answering from documents alone.
 - Checked against a live account on 2026-10-13: a customer with one open proforma had exactly that amount owed, and the open proformas across the account matched what the owner knew was unpaid.
 
 The debt tools did not give that answer on the same account:
