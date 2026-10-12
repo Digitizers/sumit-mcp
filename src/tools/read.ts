@@ -181,7 +181,9 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
       description:
         "List the standing orders (recurring items) of one SUMIT customer: what they are charged for, how much, " +
         "and the previous and next charge dates. Read-only. SUMIT has no account-wide list: call once per customer, and pace the calls. " +
-        "There is no billing-interval field. The gap between Date_PreviousBilling and Date_NextBilling is only a hint: " +
+        "The billing cycle: a non-zero Item.Duration_Months or Item.Duration_Days is the configured cycle. " +
+        "Zero in both does not mean monthly: on the one live account checked, orders charged once a year had zero in both. " +
+        "Then the gap between Date_PreviousBilling and Date_NextBilling is only a hint: " +
         "an operator can move or skip a charge, and an order that was never charged has no previous date. Say the interval is unknown when unsure. " +
         "UnitPrice was before VAT on the one live account checked. To check an account, open the document of a past cycle with " +
         "sumit_get_document and compare the matching line item (same item, same quantity), not the document total: " +
