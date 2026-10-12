@@ -38,6 +38,7 @@
 
 ### Security
 
+- `@modelcontextprotocol/sdk` 1.30.0 → 1.32.1, and the range raised to `^1.31.0`, the first release without GHSA-6qxp-vccf-f47h (its OAuth client could send credentials to an authorization server chosen by the MCP server). Lockfile refreshed for four transitive advisories: `proxy-addr` 2.0.8, `fast-uri` 3.1.8, `ip-address` 10.7.3, `source-map-js` 1.2.2. Of these, only `fast-uri` is compiled into the shipped bundle; this stdio-only server does not load the OAuth client or the HTTP transport stack.
 - Refreshed the lockfile to clear 21 Dependabot advisories (8 high): `fast-uri` ×6, `ip-address` ×3, `hono` ×7, `@hono/node-server`, `qs` ×2 (all transitive via `@modelcontextprotocol/sdk`'s HTTP transport stack, which this stdio-only server never starts) and `postcss` ×2 (dev, via Vite). `pnpm audit` is clean.
 - `@modelcontextprotocol/sdk` 1.29.0 → 1.30.0 and `sumit-api` 0.4.0 → 0.4.1, both within existing ranges.
 
