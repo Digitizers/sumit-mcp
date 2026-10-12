@@ -4,20 +4,12 @@ import { buildCreateDocumentPayload, normalizeCreateDocumentResponse } from "sum
 import { sumitPost, sumitPostRaw, SUMIT_BASE_URL } from "../client.js";
 import { resolveAccount } from "../accounts.js";
 import type { ToolDeps } from "./read.js";
+import { parseCustomerId } from "./customer-id.js";
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
 }
 const accountField = { account: z.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
-
-function parseCustomerId(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined;
-  const id = /^\d+$/.test(raw) ? Number(raw) : NaN;
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    throw new Error("sumit_create_document: customerId must be the numeric SUMIT customer ID.");
-  }
-  return id;
-}
 
 export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
   const acct = (name?: string) => resolveAccount(deps.accounts, deps.env, name);
@@ -28,7 +20,10 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
     "sumit_create_document",
     {
       title: "Create document",
-      description: "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/חשבון עסקה, 12=Quote) for a customer. Does NOT charge a card.",
+      description:
+        "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/חשבון עסקה, 12=Quote) for a customer. Does NOT charge a card. " +
+        "vatIncluded is required: it decides whether the unit prices are the totals or VAT is added to them. " +
+        "Every item name that is not already in the SUMIT catalog is added to it as a new income item; for a recurring service reuse the existing name from sumit_list_income_items.",
       inputSchema: {
         ...accountField,
         documentType: z.number().describe("SUMIT document type code."),
@@ -44,7 +39,7 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
           quantity: z.number().optional(),
         })).min(1),
         currency: z.enum(["ILS", "USD", "EUR"]).optional(),
-        vatIncluded: z.boolean().optional(),
+        vatIncluded: z.boolean().describe("Required. true: the unit prices already include VAT, and the document total is their sum. false: the unit prices are before VAT, and SUMIT adds VAT on top."),
         language: z.string().optional(),
         sendByEmail: z.string().optional().describe("Recipient email to deliver the document to on creation."),
         isDraft: z.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail."),
@@ -55,7 +50,13 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
       if (a.isDraft && a.sendByEmail) {
         throw new Error("sumit_create_document: a draft cannot be emailed. Drop sendByEmail, or issue the document without isDraft.");
       }
-      const customerId = parseCustomerId(a.customerId);
+      // The schema already requires the flag. This covers a caller that reaches the handler
+      // without it: sumit-api would send VATIncluded true, and the document would come out
+      // without the VAT the caller meant to add.
+      if (typeof a.vatIncluded !== "boolean") {
+        throw new Error("sumit_create_document: vatIncluded is required. Pass true when the unit prices already include VAT, false when SUMIT should add VAT on top.");
+      }
+      const customerId = parseCustomerId("sumit_create_document", a.customerId);
       const payload = buildCreateDocumentPayload({
         companyId: account.companyId,
         apiKey: account.apiKey,
