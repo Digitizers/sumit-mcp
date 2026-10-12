@@ -185,12 +185,19 @@ describe("read tools", () => {
     expect(parse({ customerId: "4711", debitSource: 1 })).toBe(false);
     expect(parse({ customerId: "4711", creditSource: 4 })).toBe(false);
     expect(parse({ customerId: "4711", debitSource: 1, creditSource: 4 })).toBe(true);
+    expect(parse({ customerId: "4711", debitSource: 6, creditSource: 6 })).toBe(true);
+    expect(parse({ customerId: "4711", debitSource: 7, creditSource: 4 })).toBe(false);
+    expect(parse({ customerId: "4711", debitSource: 1, creditSource: 0 })).toBe(false);
+    expect(parse({ customerId: "4711", debitSource: 1.5, creditSource: 4 })).toBe(false);
     expect(schema).not.toHaveProperty("externalIdentifier");
 
     // No default pair: a wrong one returns a plausible but wrong balance.
     await expect(handler({ customerId: "4711" })).rejects.toThrow(/debitSource is required/);
     await expect(handler({ customerId: "4711", debitSource: 1 })).rejects.toThrow(/creditSource is required/);
     await expect(handler({ customerId: "4711", debitSource: 0, creditSource: 4 })).rejects.toThrow(/debitSource is required/);
+    // SUMIT's enum is closed at six values; anything else would be sent as an invalid source.
+    await expect(handler({ customerId: "4711", debitSource: 7, creditSource: 4 })).rejects.toThrow(/debitSource is required and must be one of/);
+    await expect(handler({ customerId: "4711", debitSource: 1, creditSource: 7 })).rejects.toThrow(/creditSource is required and must be one of/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

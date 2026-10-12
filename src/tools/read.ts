@@ -16,7 +16,8 @@ function ok(data: unknown) {
 
 const accountField = { account: z.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
 
-// SUMIT's DebtSettlementSource enum, from its published schema.
+// SUMIT's DebtSettlementSource enum, from its published schema: six values, 1 to 6.
+const DEBT_SOURCE_MAX = 6;
 const DEBT_SOURCE_VALUES =
   "1=TaxInvoice, 2=ProformaInvoice, 3=PaymentRequest, 4=Receipt, 5=ProformaInvoice+PaymentRequest, 6=ProformaInvoice+PaymentRequest+TaxInvoice.";
 
@@ -91,8 +92,8 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
       inputSchema: {
         ...accountField,
         customerId: z.string().describe("Numeric SUMIT customer ID."),
-        debitSource: z.number().int().positive().describe(`Required. Which documents count as debt. ${DEBT_SOURCE_VALUES}`),
-        creditSource: z.number().int().positive().describe(`Required. Which documents settle the debt. ${DEBT_SOURCE_VALUES}`),
+        debitSource: z.number().int().min(1).max(DEBT_SOURCE_MAX).describe(`Required. Which documents count as debt. ${DEBT_SOURCE_VALUES}`),
+        creditSource: z.number().int().min(1).max(DEBT_SOURCE_MAX).describe(`Required. Which documents settle the debt. ${DEBT_SOURCE_VALUES}`),
         includeDraftDocuments: z.boolean().optional().describe("Count draft documents too. SUMIT leaves them out by default."),
       },
     },
@@ -107,8 +108,8 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
         throw new Error("sumit_get_customer_debt: customerId is required.");
       }
       for (const [name, value] of [["debitSource", debitSource], ["creditSource", creditSource]] as const) {
-        if (!Number.isInteger(value) || (value as number) <= 0) {
-          throw new Error(`sumit_get_customer_debt: ${name} is required. ${DEBT_SOURCE_VALUES}`);
+        if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > DEBT_SOURCE_MAX) {
+          throw new Error(`sumit_get_customer_debt: ${name} is required and must be one of: ${DEBT_SOURCE_VALUES}`);
         }
       }
       return ok(

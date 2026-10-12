@@ -21961,6 +21961,7 @@ function ok(data) {
   return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
 }
 var accountField = { account: external_exports.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
+var DEBT_SOURCE_MAX = 6;
 var DEBT_SOURCE_VALUES = "1=TaxInvoice, 2=ProformaInvoice, 3=PaymentRequest, 4=Receipt, 5=ProformaInvoice+PaymentRequest, 6=ProformaInvoice+PaymentRequest+TaxInvoice.";
 function registerReadTools(server, deps) {
   const call = (path, params, account) => sumitPost(resolveAccount(deps.accounts, deps.env, account), path, params, { fetchImpl: deps.fetchImpl });
@@ -22013,8 +22014,8 @@ function registerReadTools(server, deps) {
       inputSchema: {
         ...accountField,
         customerId: external_exports.string().describe("Numeric SUMIT customer ID."),
-        debitSource: external_exports.number().int().positive().describe(`Required. Which documents count as debt. ${DEBT_SOURCE_VALUES}`),
-        creditSource: external_exports.number().int().positive().describe(`Required. Which documents settle the debt. ${DEBT_SOURCE_VALUES}`),
+        debitSource: external_exports.number().int().min(1).max(DEBT_SOURCE_MAX).describe(`Required. Which documents count as debt. ${DEBT_SOURCE_VALUES}`),
+        creditSource: external_exports.number().int().min(1).max(DEBT_SOURCE_MAX).describe(`Required. Which documents settle the debt. ${DEBT_SOURCE_VALUES}`),
         includeDraftDocuments: external_exports.boolean().optional().describe("Count draft documents too. SUMIT leaves them out by default.")
       }
     },
@@ -22029,8 +22030,8 @@ function registerReadTools(server, deps) {
         throw new Error("sumit_get_customer_debt: customerId is required.");
       }
       for (const [name, value] of [["debitSource", debitSource], ["creditSource", creditSource]]) {
-        if (!Number.isInteger(value) || value <= 0) {
-          throw new Error(`sumit_get_customer_debt: ${name} is required. ${DEBT_SOURCE_VALUES}`);
+        if (!Number.isInteger(value) || value < 1 || value > DEBT_SOURCE_MAX) {
+          throw new Error(`sumit_get_customer_debt: ${name} is required and must be one of: ${DEBT_SOURCE_VALUES}`);
         }
       }
       return ok(
