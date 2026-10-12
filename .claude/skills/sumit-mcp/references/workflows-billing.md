@@ -44,7 +44,9 @@ What an open document does and does not tell you:
 - For tax invoices (`documentType: 0`) the same flags are on the row, but this has not been checked against a live account.
 - The same listing without the customer filter answers "who has open documents", with the customer name on each row.
 
-Standing orders are a second list. A customer on a standing order (הוראת קבע) is charged for recurring items and has no open document for them, so the open documents do not show what they pay or when the order ends. Read them with `sumit_list_customer_recurring`, one call per customer; SUMIT has no account-wide list. An item with `Status` 3 or 14 had a charge fail, which is money owed that no open document shows.
+Standing orders are a second list. A customer on a standing order (הוראת קבע) is charged for recurring items. Read them with `sumit_list_customer_recurring`, one call per customer; SUMIT has no account-wide list. When looking for failed charges, pass `includeInactive: true`: an order that SUMIT disabled after a failed payment (`Status` 3) counts as inactive and is left out otherwise. `Status` 14 is a retry that is still pending.
+
+Whether a failed standing-order charge is debt on top of the open documents depends on how the business set up recurring billing. Where SUMIT charges the card directly, a cycle has no document of its own, and a failed one shows only in the standing orders. Where the standing order issues a proforma or a payment request each cycle (SUMIT's debt-management method), the unpaid cycle is already an open document in the listing above, and adding it again from the standing orders counts it twice. Ask the user which method they use, and report the two lists side by side, not as one sum.
 
 The debt tools did not give the amount owed on the account above:
 
