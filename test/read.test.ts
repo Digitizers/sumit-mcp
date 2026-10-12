@@ -16,7 +16,7 @@ function fakeServer() {
 }
 
 describe("read tools", () => {
-  it("registers all 7 read tools", () => {
+  it("registers all 8 read tools", () => {
     const srv = fakeServer();
     registerReadTools(srv as any, { accounts: new Map([["main", account]]), env: { SUMIT_DEFAULT_ACCOUNT: "main" } });
     expect([...srv.tools.keys()].sort()).toEqual(
@@ -26,6 +26,7 @@ describe("read tools", () => {
         "sumit_get_debt_report",
         "sumit_get_document",
         "sumit_get_document_pdf",
+        "sumit_list_customer_recurring",
         "sumit_list_documents",
         "sumit_list_income_items",
       ].sort(),
@@ -207,4 +208,52 @@ describe("read tools", () => {
     await expect(handler({ customerId: "4711", debitSource: 1, creditSource: 7 })).rejects.toThrow(/creditSource is required and must be one of/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it("sumit_list_customer_recurring addresses the customer by numeric ID, without a search", async () => {
+    const srv = fakeServer();
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        Data: { RecurringItems: [{ ID: 9, Item: { Name: "Hosting", Duration_Months: 1 }, UnitPrice: 300, Status: 0, Date_NextBilling: "2026-11-01" }] },
+        Status: 0,
+        UserErrorMessage: null,
+      }),
+      text: async () => "",
+    })) as any;
+    registerReadTools(srv as any, {
+      accounts: new Map([["main", account]]),
+      env: { SUMIT_DEFAULT_ACCOUNT: "main" },
+      fetchImpl,
+    });
+    const { handler } = srv.tools.get("sumit_list_customer_recurring")!;
+    const res = await handler({ customerId: "4711" });
+    expect(fetchImpl.mock.calls[0][0]).toContain("/billing/recurring/listforcustomer/");
+    const { Credentials, ...body } = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(Credentials).toEqual({ CompanyID: 123, APIKey: "key-main" });
+    expect(body).toEqual({ Customer: { ID: 4711, SearchMode: 1 } });
+    expect(res.content[0].text).toContain("Hosting");
+
+    await handler({ customerId: "4711", includeInactive: true });
+    const { Credentials: _c, ...withInactive } = JSON.parse(fetchImpl.mock.calls[1][1].body);
+    expect(withInactive).toEqual({ Customer: { ID: 4711, SearchMode: 1 }, IncludeInactive: true });
+  });
+
+  it.each(["12a", "-5", "1.5", " ", "99999999999999999999", undefined])(
+    "sumit_list_customer_recurring rejects the customerId %j before calling SUMIT",
+    async (customerId) => {
+      const srv = fakeServer();
+      const fetchImpl = vi.fn() as any;
+      registerReadTools(srv as any, {
+        accounts: new Map([["main", account]]),
+        env: { SUMIT_DEFAULT_ACCOUNT: "main" },
+        fetchImpl,
+      });
+      const { schema, handler } = srv.tools.get("sumit_list_customer_recurring")!;
+      // Without an ID the Customer object would describe a new customer.
+      await expect(handler({ customerId })).rejects.toThrow(/customerId/);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(z.object(schema).safeParse({}).success).toBe(false);
+    },
+  );
 });

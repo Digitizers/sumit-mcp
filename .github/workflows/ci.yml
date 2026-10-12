@@ -58,8 +58,8 @@ jobs:
             | node dist/bundle.mjs > out.jsonl
           count=$(tail -1 out.jsonl | jq '.result.tools | length')
           echo "node $(node -v): tools/list returned $count tools"
-          if [ "$count" != "14" ]; then
-            echo "::error::expected 14 tools on Node 20, got $count"; exit 1
+          if [ "$count" != "15" ]; then
+            echo "::error::expected 15 tools on Node 20, got $count"; exit 1
           fi
 
   no-leak:
