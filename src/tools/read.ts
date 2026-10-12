@@ -21,6 +21,11 @@ const DEBT_SOURCE_MAX = 6;
 const DEBT_SOURCE_VALUES =
   "1=TaxInvoice, 2=ProformaInvoice, 3=PaymentRequest, 4=Receipt, 5=ProformaInvoice+PaymentRequest, 6=ProformaInvoice+PaymentRequest+TaxInvoice.";
 
+// SUMIT's RecurringCustomerItemStatus enum, from its published schema.
+const RECURRING_STATUS_VALUES =
+  "0=Active, 1=Cancelled, 3=Disabled after a failed payment, 9=Finished or expired, 11=Grace period, " +
+  "12=Pending first payment, 13=Cancelled by the customer, 14=Pending retry.";
+
 // The schemas already require both sources. This covers a caller that reaches a handler
 // without validation: a missing or out-of-range source must not turn into a request.
 function requireDebtSources(tool: string, debitSource: unknown, creditSource: unknown): void {
@@ -167,6 +172,39 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
       inputSchema: { ...accountField },
     },
     async ({ account }) => ok(await call("/accounting/incomeitems/list/", {}, account)),
+  );
+
+  server.registerTool(
+    "sumit_list_customer_recurring",
+    {
+      title: "List a customer's standing orders",
+      description:
+        "List the standing orders (recurring items) of one SUMIT customer: what they are charged for, how much, how often, " +
+        "and the previous and next charge dates. Read-only. SUMIT has no account-wide list: call once per customer, and pace the calls. " +
+        `Each item has a Status: ${RECURRING_STATUS_VALUES} ` +
+        "Status 3 and 14 mean a charge failed. Inactive items are left out unless includeInactive is set.",
+      inputSchema: {
+        ...accountField,
+        customerId: z.string().describe("Numeric SUMIT customer ID. It is on every row of sumit_list_documents."),
+        includeInactive: z.boolean().optional().describe("Also return cancelled, expired and disabled items. SUMIT leaves them out by default."),
+      },
+    },
+    // The customer is addressed by ID with SearchMode None, as in document creation, so SUMIT
+    // runs no search. Without an ID the Customer object would describe a new customer, so a
+    // missing ID is refused here and never reaches the endpoint.
+    async ({ account, customerId, includeInactive }) => {
+      const id = parseCustomerId("sumit_list_customer_recurring", customerId);
+      if (id === undefined) {
+        throw new Error("sumit_list_customer_recurring: customerId is required.");
+      }
+      return ok(
+        await call(
+          "/billing/recurring/listforcustomer/",
+          { Customer: { ID: id, SearchMode: 1 }, IncludeInactive: includeInactive },
+          account,
+        ),
+      );
+    },
   );
 
   server.registerTool(

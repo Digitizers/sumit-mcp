@@ -4,6 +4,7 @@
 
 ### Added
 
+- `sumit_list_customer_recurring`: a read tool for the standing orders (recurring items) of one customer, by numeric SUMIT customer ID. Until now the server could create a recurring charge but could not show what already exists. SUMIT has no account-wide list, so it is one call per customer. ([#22](https://github.com/Digitizers/sumit-mcp/issues/22))
 - `sumit_create_document` takes `isDraft`, which saves the document as a draft in SUMIT instead of issuing it. A draft cannot be combined with `sendByEmail`; the tool refuses before calling SUMIT.
 - `sumit_create_document` takes `customerId`, the numeric SUMIT ID of an existing customer. Until now the tool could address a customer only by `customerExternalId` or by name, so billing a customer that was created in SUMIT's own interface (no external identifier) left the match to SUMIT's automatic search. The ID is sent as a number, as SUMIT's schema types it, with `SearchMode` None.
 
