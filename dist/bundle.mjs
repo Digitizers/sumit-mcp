@@ -22048,6 +22048,14 @@ function ok2(data) {
   return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
 }
 var accountField2 = { account: external_exports.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
+function parseCustomerId(raw) {
+  if (raw === void 0) return void 0;
+  const id = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error("sumit_create_document: customerId must be the numeric SUMIT customer ID.");
+  }
+  return id;
+}
 function registerWriteTools(server, deps) {
   const acct = (name) => resolveAccount(deps.accounts, deps.env, name);
   const call = (path, params, name) => sumitPost(acct(name), path, params, { fetchImpl: deps.fetchImpl });
@@ -22062,6 +22070,7 @@ function registerWriteTools(server, deps) {
         customerName: external_exports.string(),
         customerEmail: external_exports.string().optional(),
         customerExternalId: external_exports.string().optional(),
+        customerId: external_exports.string().optional().describe("Numeric SUMIT ID of a customer that already exists. Bills that customer directly; without it SUMIT looks the customer up by the other fields and may create a new one."),
         customerTaxId: external_exports.string().optional().describe("Israeli \u05EA.\u05D6./\u05D7.\u05E4."),
         items: external_exports.array(external_exports.object({
           name: external_exports.string(),
@@ -22072,23 +22081,30 @@ function registerWriteTools(server, deps) {
         currency: external_exports.enum(["ILS", "USD", "EUR"]).optional(),
         vatIncluded: external_exports.boolean().optional(),
         language: external_exports.string().optional(),
-        sendByEmail: external_exports.string().optional().describe("Recipient email to deliver the document to on creation.")
+        sendByEmail: external_exports.string().optional().describe("Recipient email to deliver the document to on creation."),
+        isDraft: external_exports.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail.")
       }
     },
     async (a) => {
       const account = acct(a.account);
+      if (a.isDraft && a.sendByEmail) {
+        throw new Error("sumit_create_document: a draft cannot be emailed. Drop sendByEmail, or issue the document without isDraft.");
+      }
+      const customerId = parseCustomerId(a.customerId);
       const payload = buildCreateDocumentPayload({
         companyId: account.companyId,
         apiKey: account.apiKey,
         documentType: a.documentType,
-        customer: { name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId, searchMode: a.customerExternalId ? 2 : 0 },
+        customer: { name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId, searchMode: customerId !== void 0 ? 1 : a.customerExternalId ? 2 : 0 },
         items: a.items,
         currency: a.currency,
         vatIncluded: a.vatIncluded,
         language: a.language,
-        sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : void 0
+        sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : void 0,
+        isDraft: a.isDraft || void 0
       });
-      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
+      const body = customerId === void 0 ? payload : { ...payload, Details: { ...payload.Details, Customer: { ...payload.Details.Customer, ID: customerId } } };
+      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, body, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok2(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));
     }
   );

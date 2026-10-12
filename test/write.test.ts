@@ -33,6 +33,60 @@ describe("write tools", () => {
     expect(res.content[0].text).toContain("document.created");
   });
 
+  it("create_document saves a draft when isDraft is set, and omits the flag otherwise", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await handler({ documentType: 3, customerName: "Acme", isDraft: true, items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 3, customerName: "Acme", items: [{ name: "Service", unitPrice: 100 }] });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).Details.IsDraft).toBe(true);
+    expect("IsDraft" in JSON.parse(fetchImpl.mock.calls[1][1].body).Details).toBe(false);
+  });
+
+  it("create_document addresses an existing customer by its numeric SUMIT ID, without a search", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await handler({ documentType: 3, customerName: "Acme", customerId: "4711", items: [{ name: "Service", unitPrice: 100 }] });
+    const customer = JSON.parse(fetchImpl.mock.calls[0][1].body).Details.Customer;
+    expect(customer.ID).toBe(4711);
+    expect(customer.SearchMode).toBe(1);
+  });
+
+  it("create_document keeps the existing search modes when no customerId is given", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await handler({ documentType: 0, customerName: "Acme", items: [{ name: "Service", unitPrice: 100 }] });
+    await handler({ documentType: 0, customerName: "Acme", customerExternalId: "crm-7", items: [{ name: "Service", unitPrice: 100 }] });
+    const first = JSON.parse(fetchImpl.mock.calls[0][1].body).Details.Customer;
+    const second = JSON.parse(fetchImpl.mock.calls[1][1].body).Details.Customer;
+    expect(first.SearchMode).toBe(0);
+    expect("ID" in first).toBe(false);
+    expect(second.SearchMode).toBe(2);
+  });
+
+  it.each(["12a", "-5", "1.5", " ", "99999999999999999999"])("create_document rejects the malformed customerId %j before calling SUMIT", async (customerId) => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await expect(handler({ documentType: 3, customerName: "Acme", customerId, items: [{ name: "Service", unitPrice: 100 }] })).rejects.toThrow(/customerId/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("create_document refuses to email a draft", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await expect(handler({ documentType: 3, customerName: "Acme", isDraft: true, sendByEmail: "a@example.com", items: [{ name: "Service", unitPrice: 100 }] })).rejects.toThrow(/draft/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("does not leak the APIKey when the create endpoint returns an error", async () => {
     const srv = fakeServer();
     const errFetch = vi.fn(async () => ({

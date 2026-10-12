@@ -10,6 +10,15 @@ function ok(data: unknown) {
 }
 const accountField = { account: z.string().optional().describe("Named SUMIT account; defaults to SUMIT_DEFAULT_ACCOUNT.") };
 
+function parseCustomerId(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const id = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error("sumit_create_document: customerId must be the numeric SUMIT customer ID.");
+  }
+  return id;
+}
+
 export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
   const acct = (name?: string) => resolveAccount(deps.accounts, deps.env, name);
   const call = (path: string, params: Record<string, unknown>, name?: string) =>
@@ -26,6 +35,7 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         customerName: z.string(),
         customerEmail: z.string().optional(),
         customerExternalId: z.string().optional(),
+        customerId: z.string().optional().describe("Numeric SUMIT ID of a customer that already exists. Bills that customer directly; without it SUMIT looks the customer up by the other fields and may create a new one."),
         customerTaxId: z.string().optional().describe("Israeli ת.ז./ח.פ."),
         items: z.array(z.object({
           name: z.string(),
@@ -37,22 +47,32 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         vatIncluded: z.boolean().optional(),
         language: z.string().optional(),
         sendByEmail: z.string().optional().describe("Recipient email to deliver the document to on creation."),
+        isDraft: z.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail."),
       },
     },
     async (a) => {
       const account = acct(a.account);
+      if (a.isDraft && a.sendByEmail) {
+        throw new Error("sumit_create_document: a draft cannot be emailed. Drop sendByEmail, or issue the document without isDraft.");
+      }
+      const customerId = parseCustomerId(a.customerId);
       const payload = buildCreateDocumentPayload({
         companyId: account.companyId,
         apiKey: account.apiKey,
         documentType: a.documentType,
-        customer: { name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId, searchMode: a.customerExternalId ? 2 : 0 },
+        customer: { name: a.customerName, emailAddress: a.customerEmail, externalIdentifier: a.customerExternalId, taxId: a.customerTaxId, searchMode: customerId !== undefined ? 1 : a.customerExternalId ? 2 : 0 },
         items: a.items,
         currency: a.currency,
         vatIncluded: a.vatIncluded,
         language: a.language,
         sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : undefined,
+        isDraft: a.isDraft || undefined,
       });
-      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
+      // SUMIT's schema types Customer.ID as int64, and sumit-api only carries it as a string.
+      const body = customerId === undefined
+        ? payload
+        : { ...payload, Details: { ...payload.Details, Customer: { ...payload.Details.Customer, ID: customerId } } };
+      const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, body, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));
     },
   );
