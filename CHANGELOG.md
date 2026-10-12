@@ -22,6 +22,7 @@
 
 - The skill's billing workflows now answer "what does a customer owe" from the open documents (`sumit_list_documents`, every page, `IsClosed: false`) instead of from the debt tools, and say what an open document does not tell: the remaining balance of a document paid in instalments. A check against a live account on 2026-10-13 found that `sumit_get_customer_debt` returned a number other than the amount owed for all six debit and credit pairs tried, and that the debt report showed customers with an open proforma with a negative balance.
 - The skill says that standing orders are a second list, read with `sumit_list_customer_recurring`, and that every document kind the business bills with has to be listed (proformas, tax invoices, payment requests).
+- `sumit_list_customer_recurring` and the skill say how to read a standing order, after the first live run: `UnitPrice` was before VAT on the account checked (a document includes VAT), the billing cycle is `Item.Duration_Months` / `Item.Duration_Days` when non-zero, zero in both does not mean monthly (the gap between the two billing dates is then only a hint), and a cancelled item keeps its `Date_NextBilling`. The VAT treatment of an account is checked on the matching line of a past document, not on the document total. The description no longer says the tool shows "how often" a customer is charged. ([#24](https://github.com/Digitizers/sumit-mcp/issues/24))
 
 ### Fixed
 
