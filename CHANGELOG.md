@@ -19,7 +19,8 @@
 
 ### Documentation
 
-- The skill's billing workflows now answer "what does a customer owe" from open proformas (`sumit_list_documents`, `documentType: 3`, `IsClosed: false`) instead of from the debt tools. A check against a live account on 2026-10-13 found that `sumit_get_customer_debt` returned a number other than the amount owed for all six debit and credit pairs tried, and that the debt report showed customers who still owed money with a negative balance.
+- The skill's billing workflows now answer "what does a customer owe" from the open documents (`sumit_list_documents`, every page, `IsClosed: false`) instead of from the debt tools, and say what an open document does not tell: the remaining balance of a document paid in instalments. A check against a live account on 2026-10-13 found that `sumit_get_customer_debt` returned a number other than the amount owed for all six debit and credit pairs tried, and that the debt report showed customers with an open proforma with a negative balance.
+- The skill says that standing orders are a second list, which no tool reads yet.
 
 ### Fixed
 
