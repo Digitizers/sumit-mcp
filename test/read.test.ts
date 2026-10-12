@@ -107,7 +107,7 @@ describe("read tools", () => {
     expect(body).not.toHaveProperty("Number");
   });
 
-  it("sumit_get_debt_report sends the required DebitSource/CreditSource enums", async () => {
+  it("sumit_get_debt_report sends the DebitSource/CreditSource pair the caller chose, and has no default", async () => {
     const srv = fakeServer();
     const fetchImpl = vi.fn(async () => ({
       ok: true,
@@ -120,16 +120,23 @@ describe("read tools", () => {
       env: { SUMIT_DEFAULT_ACCOUNT: "main" },
       fetchImpl,
     });
-    const { handler } = srv.tools.get("sumit_get_debt_report")!;
-    await handler({});
-    const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
-    expect(body.DebitSource).toBe(1);
-    expect(body.CreditSource).toBe(2);
+    const { schema, handler } = srv.tools.get("sumit_get_debt_report")!;
+    await handler({ debitSource: 1, creditSource: 4 });
+    const { Credentials: _c, ...body } = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(body).toEqual({ DebitSource: 1, CreditSource: 4 });
 
-    await handler({ debitSource: 3, creditSource: 4 });
-    const override = JSON.parse(fetchImpl.mock.calls[1][1].body);
-    expect(override.DebitSource).toBe(3);
-    expect(override.CreditSource).toBe(4);
+    // The old default was 1 and 2: tax invoices minus proformas, which reports paid invoices as owed.
+    await expect(handler({})).rejects.toThrow(/sumit_get_debt_report: debitSource is required/);
+    await expect(handler({ debitSource: 1 })).rejects.toThrow(/creditSource is required/);
+    await expect(handler({ debitSource: 7, creditSource: 4 })).rejects.toThrow(/debitSource is required and must be one of/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    const parse = (input: unknown) => z.object(schema).safeParse(input).success;
+    expect(parse({})).toBe(false);
+    expect(parse({ debitSource: 1 })).toBe(false);
+    expect(parse({ debitSource: 1, creditSource: 4 })).toBe(true);
+    expect(parse({ debitSource: 0, creditSource: 4 })).toBe(false);
+    expect(parse({ debitSource: 1, creditSource: 7 })).toBe(false);
   });
 
   it("sumit_get_customer_debt sends the fields SUMIT's request schema has", async () => {

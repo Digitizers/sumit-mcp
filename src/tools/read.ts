@@ -21,6 +21,16 @@ const DEBT_SOURCE_MAX = 6;
 const DEBT_SOURCE_VALUES =
   "1=TaxInvoice, 2=ProformaInvoice, 3=PaymentRequest, 4=Receipt, 5=ProformaInvoice+PaymentRequest, 6=ProformaInvoice+PaymentRequest+TaxInvoice.";
 
+// The schemas already require both sources. This covers a caller that reaches a handler
+// without validation: a missing or out-of-range source must not turn into a request.
+function requireDebtSources(tool: string, debitSource: unknown, creditSource: unknown): void {
+  for (const [name, value] of [["debitSource", debitSource], ["creditSource", creditSource]] as const) {
+    if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > DEBT_SOURCE_MAX) {
+      throw new Error(`${tool}: ${name} is required and must be one of: ${DEBT_SOURCE_VALUES}`);
+    }
+  }
+}
+
 export function registerReadTools(server: McpServer, deps: ToolDeps): void {
   const call = (path: string, params: Record<string, unknown>, account?: string) =>
     sumitPost(resolveAccount(deps.accounts, deps.env, account), path, params, { fetchImpl: deps.fetchImpl });
@@ -107,11 +117,7 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
       if (id === undefined) {
         throw new Error("sumit_get_customer_debt: customerId is required.");
       }
-      for (const [name, value] of [["debitSource", debitSource], ["creditSource", creditSource]] as const) {
-        if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > DEBT_SOURCE_MAX) {
-          throw new Error(`sumit_get_customer_debt: ${name} is required and must be one of: ${DEBT_SOURCE_VALUES}`);
-        }
-      }
+      requireDebtSources("sumit_get_customer_debt", debitSource, creditSource);
       return ok(
         await call(
           "/accounting/documents/getdebt/",
@@ -131,32 +137,26 @@ export function registerReadTools(server: McpServer, deps: ToolDeps): void {
     "sumit_get_debt_report",
     {
       title: "Get debt report",
-      description: "Get the debt report across all SUMIT customers.",
+      description:
+        "Get the debt report across all SUMIT customers: one balance per customer ID, without names. " +
+        "debitSource and creditSource are required and decide every number: each balance is the documents of the debit kind " +
+        "minus the documents of the credit kind. Pick the pair that matches how this business bills and records payment. " +
+        "Many negative balances, or paid invoices shown as owed, mean the pair does not fit the bookkeeping.",
       inputSchema: {
         ...accountField,
-        debitSource: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe("SUMIT DebitSource enum; defaults to 1. The endpoint rejects 0 as missing."),
-        creditSource: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe("SUMIT CreditSource enum; defaults to 2. The endpoint rejects 0 as missing."),
+        debitSource: z.number().int().min(1).max(DEBT_SOURCE_MAX).describe(`Required. Which documents count as debt. ${DEBT_SOURCE_VALUES}`),
+        creditSource: z.number().int().min(1).max(DEBT_SOURCE_MAX).describe(`Required. Which documents settle the debt. ${DEBT_SOURCE_VALUES}`),
       },
     },
-    // The endpoint requires both enums — an empty body always fails with "שדה חסר: DebitSource".
-    async ({ account, debitSource, creditSource }) =>
-      ok(
-        await call(
-          "/accounting/documents/getdebtreport/",
-          { DebitSource: debitSource ?? 1, CreditSource: creditSource ?? 2 },
-          account,
-        ),
-      ),
+    // The endpoint requires both enums: an empty body always fails with "שדה חסר: DebitSource".
+    // They had defaults of 1 and 2 here, which is tax invoices minus proformas, not minus
+    // receipts, so the report showed paid invoices as owed. No pair fits every account.
+    async ({ account, debitSource, creditSource }) => {
+      requireDebtSources("sumit_get_debt_report", debitSource, creditSource);
+      return ok(
+        await call("/accounting/documents/getdebtreport/", { DebitSource: debitSource, CreditSource: creditSource }, account),
+      );
+    },
   );
 
   server.registerTool(
