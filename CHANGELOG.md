@@ -18,6 +18,11 @@
 - `sumit-api` 0.4.1 → 0.5.0. That release sends `Customer.ID` as a number by itself, so the workaround in `sumit_create_document` that rewrote the ID after the payload was built is gone. The request sent to SUMIT is unchanged.
 - The charge tools state that prices are VAT-inclusive, and pass that to `sumit-api` explicitly (0.5.0 requires the flag). This is what they always did, through the library's old default. It is fixed, not an input: the approved amount, the confirmation token and the cap are all computed from `unitPrice`, so SUMIT must not add VAT on top of it.
 
+### Documentation
+
+- The skill's billing workflows now answer "what does a customer owe" from the open documents (`sumit_list_documents`, every page, `IsClosed: false`) instead of from the debt tools, and say what an open document does not tell: the remaining balance of a document paid in instalments. A check against a live account on 2026-10-13 found that `sumit_get_customer_debt` returned a number other than the amount owed for all six debit and credit pairs tried, and that the debt report showed customers with an open proforma with a negative balance.
+- The skill says that standing orders are a second list, read with `sumit_list_customer_recurring`, and that every document kind the business bills with has to be listed (proformas, tax invoices, payment requests).
+
 ### Fixed
 
 - `sumit_get_customer_debt` failed on every call with `שדה חסר: DebitSource`. It now sends `DebitSource` / `CreditSource` as the caller chose them, sends `CustomerID` as a number and rejects a non-numeric one before the request, and takes `includeDraftDocuments`. ([#14](https://github.com/Digitizers/sumit-mcp/issues/14))
