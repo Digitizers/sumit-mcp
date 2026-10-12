@@ -29,10 +29,12 @@
 ## What a customer owes
 Start from the open documents, not from the debt tools.
 
-1. List the documents of the kind the business bills with: `sumit_list_documents` with `documentType: 3` for proformas (חשבון עסקה), `documentType: 0` for tax invoices, and a `fromDate` far enough back.
+1. List the documents of the kind the business bills with: `sumit_list_documents` with `documentType: 3` for proformas (חשבון עסקה), `documentType: 0` for tax invoices.
+   Do not let a date bound cut the answer short: an open document older than `fromDate` is left out without any sign, and the total comes out too low. Use a `fromDate` earlier than the business's first document (ask the user when it started billing in SUMIT), or say in the answer which period it covers. What the endpoint returns when no date is given has not been checked.
 2. Read every page. The tool returns one page per call, 10 rows unless `pageSize` says otherwise. While `HasNextPage` is true, call again with `startIndex` advanced by the number of rows received. A sum over the first page alone misses documents.
 3. Keep the rows with `IsClosed: false` and `IsDraft: false`. The endpoint has no filter for either, and none for the customer, so filter the result. Match the customer by `CustomerID`.
 4. `DocumentValue` on a row is the full value of the document, VAT included. It is the amount owed only when nothing has been paid against that document yet.
+5. Add up per currency, never across. Each row has `Currency` (0 ILS, 1 USD, 2 EUR), and a customer can have open documents in more than one. Report one total for each.
 
 What an open document does and does not tell you:
 
