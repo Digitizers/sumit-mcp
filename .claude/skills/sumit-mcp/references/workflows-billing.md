@@ -29,7 +29,7 @@
 ## What a customer owes
 Start from the open documents, not from the debt tools.
 
-1. List the documents of the kind the business bills with: `sumit_list_documents` with `documentType: 3` for proformas (חשבון עסקה), `documentType: 0` for tax invoices.
+1. List the open documents of every kind the business bills with, one `sumit_list_documents` call per kind: `documentType: 3` for proformas (חשבון עסקה), `0` for tax invoices, `13` for payment requests. Ask the user which of these they issue; a kind that is left out is debt that goes unreported.
    Do not let a date bound cut the answer short: an open document older than `fromDate` is left out without any sign, and the total comes out too low. Use a `fromDate` earlier than the business's first document (ask the user when it started billing in SUMIT), or say in the answer which period it covers. What the endpoint returns when no date is given has not been checked.
 2. Read every page. The tool returns one page per call, 10 rows unless `pageSize` says otherwise. While `HasNextPage` is true, call again with `startIndex` advanced by the number of rows received. A sum over the first page alone misses documents.
 3. Keep the rows with `IsClosed: false` and `IsDraft: false`. The endpoint has no filter for either, and none for the customer, so filter the result. Match the customer by `CustomerID`.
@@ -44,7 +44,7 @@ What an open document does and does not tell you:
 - For tax invoices (`documentType: 0`) the same flags are on the row, but this has not been checked against a live account.
 - The same listing without the customer filter answers "who has open documents", with the customer name on each row.
 
-Standing orders are a second list. A customer on a standing order (הוראת קבע) is charged for recurring items and has no open document for them, so the open documents do not show what they pay or when the order ends. No tool reads standing orders yet (SUMIT's endpoint is per customer; see issue #22): say so, and send the user to the standing-orders list in SUMIT, instead of answering from documents alone.
+Standing orders are a second list. A customer on a standing order (הוראת קבע) is charged for recurring items and has no open document for them, so the open documents do not show what they pay or when the order ends. Read them with `sumit_list_customer_recurring`, one call per customer; SUMIT has no account-wide list. An item with `Status` 3 or 14 had a charge fail, which is money owed that no open document shows.
 
 The debt tools did not give the amount owed on the account above:
 

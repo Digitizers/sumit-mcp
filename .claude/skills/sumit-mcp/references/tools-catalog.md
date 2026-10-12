@@ -32,4 +32,4 @@ Legend: **R** read-only · **W** write (no money) · **$** money movement.
 | 3 | Proforma | חשבון עסקה |
 | 12 | Price Quotation | הצעת מחיר |
 
-> Note: SUMIT exposes no "list/search customers" or "list payments" data endpoint. Customer state comes from debt tools + `getdetailsurl`; payment outcome comes from the charge response. Agent-initiated charging requires a browser-minted one-time `single_use_token` (SUMIT does not accept a stored card reference from this server).
+> Note: SUMIT exposes no "list/search customers" or "list payments" data endpoint. What a customer owes comes from their open documents (`sumit_list_documents`) and their standing orders (`sumit_list_customer_recurring`), not from the debt tools alone; `getdetailsurl` links to the customer's page; payment outcome comes from the charge response. Agent-initiated charging requires a browser-minted one-time `single_use_token` (SUMIT does not accept a stored card reference from this server).
