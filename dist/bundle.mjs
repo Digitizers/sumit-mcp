@@ -3343,30 +3343,30 @@ var require_utils = __commonJS({
       }
       const segments = path.split("/");
       const last = segments.length - 1;
-      const output = [];
+      const output2 = [];
       let trailingDirectory = false;
       for (let i = 0; i <= last; i++) {
         const segment = segments[i];
         if (segment === "." || segment === "..") {
           if (segment === "..") {
-            if (output.length !== 0 && output[output.length - 1] !== "..") {
-              output.pop();
+            if (output2.length !== 0 && output2[output2.length - 1] !== "..") {
+              output2.pop();
             } else {
-              output.push("..");
+              output2.push("..");
             }
           }
           trailingDirectory = i === last;
         } else {
-          output.push(segment);
+          output2.push(segment);
         }
       }
-      if (trailingDirectory && output[output.length - 1] !== "..") {
-        output.push("");
+      if (trailingDirectory && output2[output2.length - 1] !== "..") {
+        output2.push("");
       }
-      if (output.length === 0 || output[0] === "" || output[0].includes(":")) {
-        output.unshift(".");
+      if (output2.length === 0 || output2[0] === "" || output2[0].includes(":")) {
+        output2.unshift(".");
       }
-      return output.join("/");
+      return output2.join("/");
     }
     var HOST_DELIMS = { "@": "%40", "/": "%2F", "?": "%3F", "#": "%23", ":": "%3A" };
     var HOST_DELIM_RE = /[@/?#:]/g;
@@ -4075,18 +4075,18 @@ var require_fast_uri = __commonJS({
         return true;
       }
       if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport) && parsed.host && !isIPLiteral(parsed.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP === false && nonSimpleDomain(parsed.host)) {
-        let url;
+        let url2;
         try {
-          url = new URL("http://" + parsed.host);
+          url2 = new URL("http://" + parsed.host);
         } catch (e) {
           parsed.error = parsed.error || "Host's domain name can not be converted to ASCII: " + e;
           return true;
         }
-        if (!isHostOnlyURL(url)) {
+        if (!isHostOnlyURL(url2)) {
           parsed.error = parsed.error || MALFORMED_HOST_ERROR;
           return true;
         }
-        parsed.host = url.hostname;
+        parsed.host = url2.hostname;
       }
       return false;
     }
@@ -4095,8 +4095,8 @@ var require_fast_uri = __commonJS({
         parsed.host && isIP === false && !isIPLiteral(parsed.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && FORBIDDEN_DOMAIN_HOST_CHARACTER.test(parsed.host)
       );
     }
-    function isHostOnlyURL(url) {
-      return url.username === "" && url.password === "" && url.port === "" && url.pathname === "/" && url.search === "" && url.hash === "" && url.hostname !== "";
+    function isHostOnlyURL(url2) {
+      return url2.username === "" && url2.password === "" && url2.port === "" && url2.pathname === "/" && url2.search === "" && url2.hash === "" && url2.hostname !== "";
     }
     function parseWithStatus(uri, opts) {
       const options = Object.assign({}, opts);
