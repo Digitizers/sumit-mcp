@@ -4,12 +4,14 @@
 
 ### Added
 
+- `sumit_create_document` takes `items[].itemId`, the SUMIT ID of an existing income item, and `openingText` / `closingText` for the free text above and below the lines. Requires sumit-api 0.6.0. ([sumit-api#34](https://github.com/Digitizers/sumit-api/issues/34), [sumit-api#35](https://github.com/Digitizers/sumit-api/issues/35))
 - `sumit_list_customer_recurring`: a read tool for the standing orders (recurring items) of one customer, by numeric SUMIT customer ID. Until now the server could create a recurring charge but could not show what already exists. SUMIT has no account-wide list, so it is one call per customer. ([#22](https://github.com/Digitizers/sumit-mcp/issues/22))
 - `sumit_create_document` takes `isDraft`, which saves the document as a draft in SUMIT instead of issuing it. A draft cannot be combined with `sendByEmail`; the tool refuses before calling SUMIT.
 - `sumit_create_document` takes `customerId`, the numeric SUMIT ID of an existing customer. Until now the tool could address a customer only by `customerExternalId` or by name, so billing a customer that was created in SUMIT's own interface (no external identifier) left the match to SUMIT's automatic search. The ID is sent as a number, as SUMIT's schema types it, with `SearchMode` None.
 
 ### Changed
 
+- `sumit_create_document`: an item's `description` is printed on the document line instead of being sent with the catalog item, where SUMIT used it to create a duplicate income item (sumit-api 0.6.0, [sumit-api#34](https://github.com/Digitizers/sumit-api/issues/34)).
 - **Breaking for callers:** `sumit_create_document` requires `vatIncluded`. It was optional, and an omitted flag was sent to SUMIT as `VATIncluded: true` (the default of `sumit-api` 0.4, the opposite of SUMIT's own). Prices given before VAT then produced a document whose total left the VAT out, with no error. The tool now refuses a call without the flag, in the input schema and again in the handler. ([#15](https://github.com/Digitizers/sumit-mcp/issues/15))
 - **Breaking for callers:** `sumit_get_customer_debt` requires `customerId`, `debitSource` and `creditSource`, and no longer accepts `externalIdentifier`. SUMIT's request has no such field and ignores unknown ones, so a lookup by external identifier could never have worked. The two sources have no default: the debt is one kind of document minus another, and a pair that does not match how the business bills returns a plausible but wrong balance. ([#14](https://github.com/Digitizers/sumit-mcp/issues/14))
 

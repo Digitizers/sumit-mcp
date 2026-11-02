@@ -103,6 +103,26 @@ describe("write tools", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("create_document bills an existing catalog item by itemId and prints the description on the line", async () => {
+    const srv = fakeServer();
+    const fetchImpl = okFetch({ DocumentID: 99 });
+    registerWriteTools(srv as any, { accounts: new Map([["main", account]]), env: {}, fetchImpl });
+    const { handler } = srv.tools.get("sumit_create_document")!;
+    await handler({
+      documentType: 3,
+      customerName: "Acme",
+      vatIncluded: false,
+      items: [{ name: "WordPress Development", itemId: "98269625", description: "August hours", unitPrice: 250 }],
+      openingText: "Hours for August to October",
+      closingText: "Payment by bank transfer",
+    });
+    const sent = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(sent.Items[0].Description).toBe("August hours");
+    expect(sent.Items[0].Item).toEqual({ ID: 98269625, Name: "WordPress Development", SearchMode: 1 });
+    expect(sent.Details.OpeningText).toBe("Hours for August to October");
+    expect(sent.Details.ClosingText).toBe("Payment by bank transfer");
+  });
+
   it("create_document refuses to email a draft", async () => {
     const srv = fakeServer();
     const fetchImpl = okFetch({ DocumentID: 99 });
