@@ -36687,7 +36687,7 @@ function resolveAccount(accounts, env, requested) {
   throw new Error("multiple accounts configured \u2014 set SUMIT_DEFAULT_ACCOUNT or pass account");
 }
 
-// node_modules/.pnpm/sumit-api@0.5.0/node_modules/sumit-api/dist/index.js
+// node_modules/.pnpm/sumit-api@0.6.0/node_modules/sumit-api/dist/index.js
 var LANGUAGE_STRING_TO_CODE = {
   he: 0,
   en: 1,
@@ -36800,6 +36800,8 @@ function buildCreateDocumentPayload(params) {
     Language: toLanguageCode(params.language),
     Currency: params.currency ? currencyToSumitString(params.currency) : void 0,
     Description: blankToUndefined(params.description),
+    ...documentText("Opening", params.openingText, params.openingTextHtml),
+    ...documentText("Closing", params.closingText, params.closingTextHtml),
     ExternalReference: blankToUndefined(params.externalReference),
     Date: blankToUndefined(params.date),
     DueDate: blankToUndefined(params.dueDate),
@@ -36808,17 +36810,20 @@ function buildCreateDocumentPayload(params) {
   const items = params.items.map((item) => {
     const quantity = item.quantity ?? 1;
     const totalPrice = item.totalPrice ?? round2(item.unitPrice * quantity);
+    const itemId = toPositiveId(item.itemId, "items[].itemId must be the numeric SUMIT income item ID");
+    const lineDescription = blankToUndefined(item.description);
     return {
       Quantity: quantity,
       UnitPrice: item.unitPrice,
       TotalPrice: totalPrice,
       ...item.vat !== void 0 ? { VAT: item.vat } : {},
+      ...lineDescription !== void 0 ? { Description: lineDescription } : {},
       Item: compact({
+        ID: itemId,
         Name: item.name,
-        Description: blankToUndefined(item.description),
         SKU: blankToUndefined(item.sku),
         ExternalIdentifier: blankToUndefined(item.externalIdentifier),
-        SearchMode: 0
+        SearchMode: itemId !== void 0 ? 1 : 0
       })
     };
   });
@@ -36833,6 +36838,9 @@ function buildCreateDocumentPayload(params) {
   });
 }
 function toCustomerId(value) {
+  return toPositiveId(value, "customer.id must be the numeric SUMIT customer ID");
+}
+function toPositiveId(value, message) {
   if (value === void 0)
     return void 0;
   if (typeof value === "string") {
@@ -36840,14 +36848,27 @@ function toCustomerId(value) {
     if (trimmed === "")
       return void 0;
     if (!/^\d+$/.test(trimmed)) {
-      throw new Error("buildCreateDocumentPayload: customer.id must be the numeric SUMIT customer ID");
+      throw new Error(`buildCreateDocumentPayload: ${message}`);
     }
     value = Number(trimmed);
   }
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error("buildCreateDocumentPayload: customer.id must be the numeric SUMIT customer ID");
+    throw new Error(`buildCreateDocumentPayload: ${message}`);
   }
   return value;
+}
+function documentText(position, text, html) {
+  const plain = blankToUndefined(text);
+  const markup = blankToUndefined(html);
+  const field = position === "Opening" ? "openingText" : "closingText";
+  if (plain !== void 0 && markup !== void 0) {
+    throw new Error(`buildCreateDocumentPayload: give ${field} or ${field}Html, not both`);
+  }
+  if (plain !== void 0)
+    return { [`${position}Text`]: plain };
+  if (markup !== void 0)
+    return { [`${position}TextHTML`]: markup };
+  return {};
 }
 function toLanguageCode(value) {
   if (typeof value === "number")
@@ -36995,7 +37016,7 @@ function normalizeChargeResponse(response) {
   });
 }
 function redactSensitiveText(value) {
-  return value.replace(/[\w.+-]+@[\w.-]+/g, "[REDACTED]").replace(/(כרטיס\s+אשראי|credit\s+card)\s*\(\s*\d{4}\s*\)/gi, "$1 ([REDACTED])").replace(/(singleuse)?token\s*[:=]\s*[^\s;,]+/gi, "$1token=[REDACTED]").replace(/api\s*key\s*[:=]\s*[^\s;,]+/gi, "api key=[REDACTED]").replace(/card(number)?\s*[:=]\s*[^\s;,]+/gi, "card$1=[REDACTED]").replace(/\bUpay_\w+/gi, "Upay_[REDACTED]").replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "[REDACTED]").replace(/\b\d{12,19}\b/g, "[REDACTED]").replace(/((?:citizen(?:[\s_]*id)?|ת\.ז\.?|מ\.ז\.?)\W*)\d{9}\b/gi, "$1[REDACTED]");
+  return value.replace(/[\w.+-]{1,64}@[\w.-]+/g, "[REDACTED]").replace(/(כרטיס\s+אשראי|credit\s+card)\s*\(\s*\d{4}\s*\)/gi, "$1 ([REDACTED])").replace(/(singleuse)?token\s*[:=]\s*[^\s;,]+/gi, "$1token=[REDACTED]").replace(/api\s*key\s*[:=]\s*[^\s;,]+/gi, "api key=[REDACTED]").replace(/card(number)?\s*[:=]\s*[^\s;,]+/gi, "card$1=[REDACTED]").replace(/\bUpay_\w+/gi, "Upay_[REDACTED]").replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "[REDACTED]").replace(/\b\d{12,19}\b/g, "[REDACTED]").replace(/((?:citizen(?:[\s_]*id)?|ת\.ז\.?|מ\.ז\.?)\W*)\d{9}\b/gi, "$1[REDACTED]");
 }
 function normalizeKnownEventType(value) {
   if (value === "payment.succeeded" || value === "payment.failed" || value === "recurring.charged" || value === "recurring.cancelled" || value === "invoice.created") {
@@ -37380,7 +37401,7 @@ function registerWriteTools(server, deps) {
     "sumit_create_document",
     {
       title: "Create document",
-      description: "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/\u05D7\u05E9\u05D1\u05D5\u05DF \u05E2\u05E1\u05E7\u05D4, 12=Quote) for a customer. Does NOT charge a card. vatIncluded is required: it decides whether the unit prices are the totals or VAT is added to them. Every item name that is not already in the SUMIT catalog is added to it as a new income item; for a recurring service reuse the existing name from sumit_list_income_items.",
+      description: "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/\u05D7\u05E9\u05D1\u05D5\u05DF \u05E2\u05E1\u05E7\u05D4, 12=Quote) for a customer. Does NOT charge a card. vatIncluded is required: it decides whether the unit prices are the totals or VAT is added to them. Pass itemId (from sumit_list_income_items) to bill an existing catalog item; without it, an item name that is not already in the SUMIT catalog is added to it as a new income item. An item's description is printed on that document line only.",
       inputSchema: {
         ...accountField2,
         documentType: external_exports.number().describe("SUMIT document type code."),
@@ -37391,7 +37412,8 @@ function registerWriteTools(server, deps) {
         customerTaxId: external_exports.string().optional().describe("Israeli \u05EA.\u05D6./\u05D7.\u05E4."),
         items: external_exports.array(external_exports.object({
           name: external_exports.string(),
-          description: external_exports.string().optional(),
+          itemId: external_exports.string().optional().describe("Numeric SUMIT ID of an existing income item (sumit_list_income_items). The line uses that item, with no catalog search."),
+          description: external_exports.string().optional().describe("Text printed on this document line. Does not change the catalog item."),
           unitPrice: external_exports.number(),
           quantity: external_exports.number().optional()
         })).min(1),
@@ -37399,7 +37421,9 @@ function registerWriteTools(server, deps) {
         vatIncluded: external_exports.boolean().describe("Required. true: the unit prices already include VAT, and the document total is their sum. false: the unit prices are before VAT, and SUMIT adds VAT on top."),
         language: external_exports.string().optional(),
         sendByEmail: external_exports.string().optional().describe("Recipient email to deliver the document to on creation."),
-        isDraft: external_exports.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail.")
+        isDraft: external_exports.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail."),
+        openingText: external_exports.string().optional().describe('Free text above the document lines ("\u05EA\u05D5\u05DB\u05DF \u05E4\u05D5\u05EA\u05D7" in SUMIT). Plain text.'),
+        closingText: external_exports.string().optional().describe('Free text below the document lines ("\u05EA\u05D5\u05DB\u05DF \u05E1\u05D5\u05D2\u05E8" in SUMIT), e.g. payment instructions. Plain text.')
       }
     },
     async (a) => {
@@ -37423,7 +37447,9 @@ function registerWriteTools(server, deps) {
         vatIncluded: a.vatIncluded,
         language: a.language,
         sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : void 0,
-        isDraft: a.isDraft || void 0
+        isDraft: a.isDraft || void 0,
+        openingText: a.openingText,
+        closingText: a.closingText
       });
       const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok2(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));
