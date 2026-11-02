@@ -23,7 +23,8 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
       description:
         "Issue a SUMIT accounting document (0=Invoice, 1=Invoice+Receipt, 2=Receipt, 3=Proforma/חשבון עסקה, 12=Quote) for a customer. Does NOT charge a card. " +
         "vatIncluded is required: it decides whether the unit prices are the totals or VAT is added to them. " +
-        "Every item name that is not already in the SUMIT catalog is added to it as a new income item; for a recurring service reuse the existing name from sumit_list_income_items.",
+        "Pass itemId (from sumit_list_income_items) to bill an existing catalog item; without it, an item name that is not already in the SUMIT catalog is added to it as a new income item. " +
+        "An item's description is printed on that document line only.",
       inputSchema: {
         ...accountField,
         documentType: z.number().describe("SUMIT document type code."),
@@ -34,7 +35,8 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         customerTaxId: z.string().optional().describe("Israeli ת.ז./ח.פ."),
         items: z.array(z.object({
           name: z.string(),
-          description: z.string().optional(),
+          itemId: z.string().optional().describe("Numeric SUMIT ID of an existing income item (sumit_list_income_items). The line uses that item, with no catalog search."),
+          description: z.string().optional().describe("Text printed on this document line. Does not change the catalog item."),
           unitPrice: z.number(),
           quantity: z.number().optional(),
         })).min(1),
@@ -43,6 +45,8 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         language: z.string().optional(),
         sendByEmail: z.string().optional().describe("Recipient email to deliver the document to on creation."),
         isDraft: z.boolean().optional().describe("Save the document as a draft in SUMIT instead of issuing it. Cannot be combined with sendByEmail."),
+        openingText: z.string().optional().describe("Free text above the document lines (\"תוכן פותח\" in SUMIT). Plain text."),
+        closingText: z.string().optional().describe("Free text below the document lines (\"תוכן סוגר\" in SUMIT), e.g. payment instructions. Plain text."),
       },
     },
     async (a) => {
@@ -69,6 +73,8 @@ export function registerWriteTools(server: McpServer, deps: ToolDeps): void {
         language: a.language,
         sendByEmail: a.sendByEmail ? { emailAddress: a.sendByEmail } : undefined,
         isDraft: a.isDraft || undefined,
+        openingText: a.openingText,
+        closingText: a.closingText,
       });
       const data = await sumitPostRaw(`${SUMIT_BASE_URL}/accounting/documents/create/`, payload, { fetchImpl: deps.fetchImpl, apiKey: account.apiKey });
       return ok(normalizeCreateDocumentResponse({ Status: "Success", Data: data }));

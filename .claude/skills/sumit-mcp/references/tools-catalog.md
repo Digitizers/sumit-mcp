@@ -13,7 +13,7 @@ Legend: **R** read-only · **W** write (no money) · **$** money movement.
 - `sumit_get_customer_url` — link to a customer's SUMIT page (no raw-export endpoint exists).
 
 ## Write (W)
-- `sumit_create_document` — issue a document (see types below). No card charge. `vatIncluded` is required: `false` when the unit prices are before VAT (SUMIT adds it), `true` when they already include it. `isDraft: true` saves a draft instead of issuing it. `customerId` bills an existing customer by its SUMIT ID. Every item name that is not in the catalog yet is added to it.
+- `sumit_create_document` — issue a document (see types below). No card charge. `vatIncluded` is required: `false` when the unit prices are before VAT (SUMIT adds it), `true` when they already include it. `isDraft: true` saves a draft instead of issuing it. `customerId` bills an existing customer by its SUMIT ID. `items[].itemId` bills an existing catalog item by its ID (from `sumit_list_income_items`); without it, an item name that is not in the catalog yet is added to it. `items[].description` prints on the line only. `openingText` / `closingText` fill the free text above and below the lines.
 - `sumit_send_document` — email an existing document.
 - `sumit_cancel_document` — cancel/credit a document.
 - `sumit_upsert_customer` — create/update a customer (by ExternalIdentifier).

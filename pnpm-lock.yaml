@@ -12,8 +12,8 @@ importers:
         specifier: ^1.31.0
         version: 1.32.1(zod@4.6.7)
       sumit-api:
-        specifier: ^0.5.0
-        version: 0.5.0
+        specifier: ^0.6.0
+        version: 0.6.0
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -822,8 +822,8 @@ packages:
   std-env@4.3.0:
     resolution: {integrity: sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==}
 
-  sumit-api@0.5.0:
-    resolution: {integrity: sha512-wFi1abegjPZrjM1wQmtdYwqBslrGqeSIsr34tuW2PHWt1RJmckLVcmf8R9nwwZ2rQLAD2puBdGsc1vlaM74wUg==}
+  sumit-api@0.6.0:
+    resolution: {integrity: sha512-oF+DcTvXPV9AV4/mVI/6VshUZboXphTFHrIMVKkw+dOowgOXL7taojCVhXuhuV68URTX0eUXa8DT7F8wvamNTQ==}
 
   tinybench@6.2.2:
     resolution: {integrity: sha512-nIZ2N2dFpjBsg2hgitKu7mA+FvsIJuGJOwysRngmVRRmWgR/UyPjwJj8c/fT/dhm8EkHnF5EOogRf+0Z2qrimA==}
@@ -1650,7 +1650,7 @@ snapshots:
 
   std-env@4.3.0: {}
 
-  sumit-api@0.5.0: {}
+  sumit-api@0.6.0: {}
 
   tinybench@6.2.2: {}
 
